@@ -1,0 +1,9 @@
+Changes
+JSON.pm
+JSON/Parser.pm
+JSON/Converter.pm
+Makefile.PL
+MANIFEST
+README
+t/1.t
+t/2.t

@@ -1,0 +1,6 @@
+Revision history for Perl extension JSON.
+
+0.09  Sat Apr  9 15:27:47 2005
+	- original version; created by h2xs 1.22 with options
+		-XA -b 5.5.3 -n JSON
+
