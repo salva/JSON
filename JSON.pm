@@ -9,7 +9,7 @@ use JSON::Converter;
 
 use vars qw($AUTOCONVERT $VERSION);
 
-$VERSION     = 0.9;
+$VERSION     = 0.91;
 $AUTOCONVERT = 1;
 
 my $parser; # JSON => Perl

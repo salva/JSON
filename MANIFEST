@@ -2,8 +2,11 @@ Changes
 JSON.pm
 JSON/Parser.pm
 JSON/Converter.pm
+JSONRPC.pm
+JSONRPC/Transport/HTTP.pm
 Makefile.PL
 MANIFEST
 README
-t/1.t
-t/2.t
+t/01-use.t
+t/02-base.t
+t/03-circleref.t
