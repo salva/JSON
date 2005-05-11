@@ -109,6 +109,13 @@ This module is L<JSONRPC> subclass.
 Most ideas were borrowed from L<XMLRPC::Lite>.
 Currently C<JSONRPC> provides only CGI server function.
 
+
+=head1 CAUTION
+
+This module requires CGI.pm which version is more than 2.9.2.
+(become a core module in Perl 5.8.1.)
+
+
 =head1 SEE ALSO
 
 L</http://json-rpc.org/>

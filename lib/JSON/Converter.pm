@@ -4,7 +4,7 @@ package JSON::Converter;
 use vars qw($AUTOCONVERT $VERSION);
 use Carp;
 
-$VERSION     = 0.9;
+$VERSION     = 0.91;
 
 $AUTOCONVERT = 1;
 
@@ -104,7 +104,7 @@ sub valueToString {
 	return 'null'             if(!defined $value);
 
 	if($AUTOCONVERT and !ref($value)){
-		return $value  if($value =~ /^-?(0|[1-9][\d]*)(\.[\d])?$/);
+		return $value  if($value =~ /^-?(0|[1-9][\d]*)(\.[\d]+)?$/);
 		return 'true'  if($value =~ /^true$/i);
 		return 'false' if($value =~ /^false$/i);
 	}

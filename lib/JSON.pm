@@ -9,7 +9,7 @@ use JSON::Converter;
 
 use vars qw($AUTOCONVERT $VERSION);
 
-$VERSION     = 0.91;
+$VERSION     = 0.92;
 $AUTOCONVERT = 1;
 
 my $parser; # JSON => Perl
@@ -56,7 +56,7 @@ sub objToJson {
 
 sub Number {
 	my $num = shift;
-	if(!defined $num or $num !~ /^-?(0|[1-9][\d]*)(\.[\d])?$/){
+	if(!defined $num or $num !~ /^-?(0|[1-9][\d]*)(\.[\d]+)?$/){
 		return undef;
 	}
 	bless {value => $num}, 'JSON::NotString';

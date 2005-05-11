@@ -1,5 +1,12 @@
 Revision history for Perl extension JSON.
 
+0.92  Wed May 11 16:13:19 2005
+	- modified directory arrange in this distribution.
+	    (thanks to Mike Castle <dalgoda[at]ix.netcom.com>)
+	- added doc JSONRPC::Transport::HTTP requires CGI >= 2.92.
+	    (thanks to SHIMADA)
+	- fixed some bugs about AUTOCONVERT function.
+
 0.91  Wed Apr 13 16:27:49 2005
 	- added some tests
 	- added JSONRPC, JSONRPC::Transport::HTTP
