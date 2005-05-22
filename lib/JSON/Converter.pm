@@ -4,18 +4,11 @@ package JSON::Converter;
 use vars qw($AUTOCONVERT $VERSION);
 use Carp;
 
-$VERSION     = 0.91;
+$VERSION     = 0.9902;
 
 $AUTOCONVERT = 1;
 
 sub new { bless {}, shift; }
-
-sub obj {
-	my $self = shift;
-	$self->{obj} = $_[0] if(@_ > 0);
-	$self->{obj};
-}
-
 
 sub objToJson {
 	my $self = shift;
@@ -26,18 +19,17 @@ sub objToJson {
 	local $AUTOCONVERT = $JSON::AUTOCONVERT;
 
 	if(ref($obj) eq 'HASH'){
-		return $self->hashToString($obj);
+		return $self->hashToJson($obj);
 	}
 	elsif(ref($obj) eq 'ARRAY'){
-		return $self->arrayToString($obj);
+		return $self->arrayToJson($obj);
 	}
 	else{
 		return;
 	}
 }
 
-
-sub hashToString {
+sub hashToJson {
 	my $self = shift;
 	my $obj  = shift;
 	my ($k,$v);
@@ -52,23 +44,23 @@ sub hashToString {
 	for my $k (keys %$obj){
 		my $v = $obj->{$k};
 		if(ref($v) eq "HASH"){
-			$res{$k} = $self->hashToString($v);
+			$res{$k} = $self->hashToJson($v);
 		}
 		elsif(ref($v) eq "ARRAY"){
-			$res{$k} = $self->arrayToString($v);
+			$res{$k} = $self->arrayToJson($v);
 		}
 		else{
-			$res{$k} = $self->valueToString($v);
+			$res{$k} = $self->valueToJson($v);
 		}
 	}
 
 	pop @{ $self->{_stack_myself} };
 
-	return '{' . join(',',map { qq|"$_":| .$res{$_} } keys %res) . '}';
+	return '{' . join(',',map { _stringfy($_) . ':' .$res{$_} } keys %res) . '}';
 }
 
 
-sub arrayToString {
+sub arrayToJson {
 	my $self = shift;
 	my $obj  = shift;
 	my @res;
@@ -81,13 +73,13 @@ sub arrayToString {
 
 	for my $v (@$obj){
 		if(ref($v) eq "HASH"){
-			push @res,$self->hashToString($v);
+			push @res,$self->hashToJson($v);
 		}
 		elsif(ref($v) eq "ARRAY"){
-			push @res,$self->arrayToString($v);
+			push @res,$self->arrayToJson($v);
 		}
 		else{
-			push @res,$self->valueToString($v);
+			push @res,$self->valueToJson($v);
 		}
 	}
 
@@ -97,51 +89,83 @@ sub arrayToString {
 }
 
 
-sub valueToString {
+sub valueToJson {
 	my $self  = shift;
 	my $value = shift;
 
-	return 'null'             if(!defined $value);
+	return 'null' if(!defined $value);
 
 	if($AUTOCONVERT and !ref($value)){
-		return $value  if($value =~ /^-?(0|[1-9][\d]*)(\.[\d]+)?$/);
+		return $value  if($value =~ /^-?(?:0|[1-9][\d]*)(?:\.[\d]+)?$/);
 		return 'true'  if($value =~ /^true$/i);
 		return 'false' if($value =~ /^false$/i);
 	}
 
-	return  '"'. _quotemeta($value) . '"' unless(ref($value));
+	return  _stringfy($value) unless(ref($value));
 
 	if( $value->isa('JASON::NotSring') ){
-		die "Invalid";
+		die "Invalid value";
 	}
 
 	return defined $value->{value} ? $value->{value} : 'null';
 }
 
 
-sub _quotemeta {
-	my $value = shift;
+sub _stringfy {
+	my $arg = shift;
+	my $l   = length $arg;
+	my $s   = '"';
+	my $i = 0;
 
-	return $value unless($value =~ /["\\]/);
+	while($i < $l){
+		my $c = substr($arg,$i++,1);
+		if($c ge ' '){
+			$c =~ s{(["\\/])}{\\$1};
+			$s .= $c;
+		}
+		elsif($c =~ tr/\n\r\t\f\b/nrtfb/){
+			$s .= '\\' . $c;
+		}
+		else{
+			$s .= '\\u00' . unpack('H2',$c);
+		}
+	}
 
-	$value = quotemeta($value);
-	$value =~ s{\\ }{ }g;
-	$value =~ s{\\,}{,}g;
-	$value =~ s{\\-}{-}g;
-	$value =~ s{\\\.}{.}g;
-	$value =~ s{\\\(}{(}g;
-	$value =~ s{\\\)}{)}g;
-	$value =~ s{"}{\"}g;
-
-	return $value;
+	return $s . '"';
 }
+
+
 
 1;
 __END__
 
-=head1 SEE ALSO
 
-L</http://www.crockford.com/JSON/index.html>
+=head1 METHODs
+
+=over
+
+=item parse
+
+alias of C<objToJson>.
+
+=item objToJson
+
+convert a passed perl data structure into JSON object.
+can't parse bleesed object.
+
+=item hashToJson
+
+convert a passed hash into JSON object.
+
+=item arrayToJson
+
+convert a passed array into JSON array.
+
+=item valueToJson
+
+convert a passed data into a string of JSON.
+
+=back
 
 =head1 COPYRIGHT
 
@@ -149,5 +173,9 @@ makamaka [at] donzoko.net
 
 This library is free software; you can redistribute it
 and/or modify it under the same terms as Perl itself.
+
+=head1 SEE ALSO
+
+L<http://www.crockford.com/JSON/index.html>
 
 =cut

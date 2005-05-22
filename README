@@ -1,4 +1,4 @@
-JSON version 0.91
+JSON version 0.96
 =================
 
 DESCRIPTION
@@ -6,6 +6,9 @@ DESCRIPTION
 This module converts between JSON (JavaScript Object Notation) and Perl
 data structure into each other.
 For JSON, See to http://www.crockford.com/JSON/.
+
+  JSON-RPC http://json-rpc.org/
+
 
 INSTALLATION
 
@@ -16,11 +19,15 @@ To install this module type the following:
    make test
    make install
 
+
 DEPENDENCIES
 
 This module requires these other modules and libraries:
 
-  Test::More, Parse::RecDescent
+  Test::More
+
+If you want to use JSONRPC::Transport::HTTP::Daemon,
+HTTP::Daemon is required.
 
 COPYRIGHT AND LICENCE
 

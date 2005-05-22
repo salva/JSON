@@ -1,6 +1,6 @@
 use Test::More;
 use strict;
-BEGIN { plan tests => 3 };
+BEGIN { plan tests => 4 };
 use JSON;
 
 my $obj = {a => 123};
@@ -24,6 +24,15 @@ unlike($@, qr/circle ref/);
 $obj1->{a} = $obj2;
 $obj2->{b} = $obj3;
 $obj3->{c} = $obj1;
+
+eval q{ objToJson($obj1) };
+like($@, qr/circle ref/);
+
+$obj1->{a} = [];
+$obj2->{b} = {};
+
+$obj1->{a}->[0] = $obj2;
+$obj2->{b}->{c} = $obj1;
 
 eval q{ objToJson($obj1) };
 like($@, qr/circle ref/);

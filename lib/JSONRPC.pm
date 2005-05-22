@@ -7,7 +7,7 @@ use JSON;
 
 use vars qw($VERSION);
 
-$VERSION = 0.3;
+$VERSION = 0.9001;
 
 
 sub new {
@@ -17,14 +17,14 @@ sub new {
 }
 
 
-# JSONRPC::Transport::XXX->disptch_to('MyApp')->handle();
+# JSONRPC::Transport::XXX->dispatch_to('MyApp')->handle();
 # This module looks for the method from MyApp.pm.
 # looks for a method from the corresponding package name when a client call it.
 # At present, only the module name can be specified. 
 
 sub dispatch_to {
 	my $class = shift;
-	my $self  = $class->new;
+	my $self  = ref($class) ? $class : $class->new;
 	my @srv   = @_;
 
 	if(@srv){
@@ -210,25 +210,23 @@ __END__
  use JSONRPC::Transport::HTTP;
  use MyApp;
 
- # Currently provides only CGI server
- use JSONRPC::Transport::HTTP;
-
  # a la XMLRPC::Lite
- JSONRPC::Transport::HTTP::CGI->disptch_to('MyApp')->handle();
+ JSONRPC::Transport::HTTP::CGI->dispatch_to('MyApp')->handle();
 
 
 =head1 DESCRIPTION
 
-This module implementes JSON-RPC (L</http://json-rpc.org/>) server.
+This module implementes JSON-RPC (L<http://json-rpc.org/>) server.
 Most ideas were borrowed from L<XMLRPC::Lite>.
-Currently C<JSONRPC> provides only CGI server function.
+Currently C<JSONRPC> provides CGI server function.
 
 
 =head1 SEE ALSO
 
-L</http://json-rpc.org/>
+L<JSONRPC::Transport::HTTP>
 L<JSON>
 L<XMLRPC::Lite>
+L<http://json-rpc.org/>
 
 
 =head1 AUTHOR

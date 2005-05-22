@@ -9,7 +9,7 @@ use JSON::Converter;
 
 use vars qw($AUTOCONVERT $VERSION);
 
-$VERSION     = 0.92;
+$VERSION     = 0.96;
 $AUTOCONVERT = 1;
 
 my $parser; # JSON => Perl
@@ -175,7 +175,7 @@ C<objToJson>, C<jsonToObj>.
 
 =head1 SEE ALSO
 
-L</http://www.crockford.com/JSON/>
+L<http://www.crockford.com/JSON/>
 L<JSON::Parser>
 L<JSON::Converter>
 

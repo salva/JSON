@@ -1,74 +1,268 @@
 package JSON::Parser;
 
-use strict;
-use Parse::RecDescent;
+#
+# Perl implementaion of json.js
+#  http://www.crockford.com/JSON/json.js
+#
 
 use vars qw($VERSION);
+use strict;
 
-$VERSION     = 0.5;
+$VERSION     = 0.903;
 
-my $grammar = q {
-	{
-		my $comments = q{(\s*(//[^\n]*)\n\s*)|(?sx-im:\s*(/[*] .*? [*]/\s*)*)};
-	}
-	rule     : object                { $JSON::Parser::OBJ = $item[1] }
-	         | array                 { $JSON::Parser::OBJ = $item[1] }
-	         | <error>
-
-	object   : <skip: "$comments"> '{' member(s? /,/) '}' { my $hash = { (map { %$_ } @{$item[3]}) }; }
-
-	array    : <skip: "$comments"> '[' value(s? /,/) ']'  { $item[3] }
-
-	member   : <skip: "$comments"> string ':' value      { {"$item[2]" => $item[4]} }
-
-	value    : string { my $str = $item[1]; $str =~ s/\\\\(["\\\\])/$1/g; $str; }
-	         | number
-	         | object
-	         | array
-	         | true | false | null
-	         | <error>
-
-	string   : '"' /([^"\\\\]|\\\\["bfnrtu\/\\\\])*/ '"' { $item[2] }
-
-	number   : /-?(0|[1-9][0-9]*)(.[0-9]+)?/
-	                                    { bless {value => $item[1]}, 'JSON::NotString' }
-	true     : 'true'                   { bless {value => 'true'  }, 'JSON::NotString' }
-	false    : 'false'                  { bless {value => 'false' }, 'JSON::NotString' }
-	null     : 'null'                   { bless {value => undef   }, 'JSON::NotString' }
-};
 
 sub new {
 	my $class = shift;
 	my $self  = {};
-
-	$self->{parser}= new Parse::RecDescent ($grammar);
-
 	bless $self,$class;
 }
 
-sub parse {
-	my $self = shift;
-	my $js   = shift;
 
-	local $JSON::Parser::OBJ;
+*jsonToObj = \&parse;
 
-	$self->{parser} ||= new Parse::RecDescent ($grammar);
 
-	$self->{parser}->rule($js);
-}
+{ # PARSE 
 
-sub jsonToObj {
-	my $self = shift;
-	my $js   = shift;
+	my $text;
+	my $at;
+	my $ch;
+	my $len;
 
-	local $JSON::Parser::OBJ;
+	sub parse {
+		my $self = shift;
+		$text = shift;
+		$at   = 0;
+		$ch   = '';
+		$len  = length $text;
+		value();
+	}
 
-	$self->{parser} ||= new Parse::RecDescent ($grammar) || die $!;
 
-	$self->{parser}->rule($js);
+	sub next_chr {
+		return $ch = undef if($at >= $len);
+		$ch = substr($text, $at++, 1);
+	}
 
-	$JSON::Parser::OBJ;
-}
+
+	sub value {
+		white();
+		return object() if($ch eq '{');
+		return array()  if($ch eq '[');
+		return string() if($ch eq '"');
+		return number() if($ch eq '-');
+		return $ch =~ /\d/ ? number() : word();
+	}
+
+
+	sub string {
+		my ($i,$s,$t,$u);
+		$s = '';
+
+		if($ch eq '"'){
+			OUTER: while( defined(next_chr()) ){
+				if($ch eq '"'){
+					next_chr();
+					return $s;
+				}
+				elsif($ch eq '\\'){
+					next_chr();
+					if($ch =~ m{([\\bfnrt/])}){
+						$s .= "\\$1";
+					}
+					elsif($ch eq 'u'){
+						my $u = '';
+						for(1..4){
+							$ch = next_chr();
+							last OUTER if($ch !~ /[\da-fA-F]/);
+							$u .= $ch;
+						}
+						$u =~ s/^00// or error("Bad string");
+						$s .= pack('H2',$u);
+					}
+					else{
+						$s .= $ch;
+					}
+				}
+				else{
+					$s .= $ch;
+				}
+			}
+		}
+
+		error("Bad string");
+	}
+
+
+	sub white {
+		while( defined $ch  ){
+			if($ch le ' '){
+				next_chr();
+			}
+			elsif($ch eq '/'){
+				next_chr();
+				if($ch eq '/'){
+					1 while(defined(next_chr()) and $ch ne "\n" and $ch ne "\r");
+				}
+				elsif($ch eq '*'){
+					next_chr();
+					while(1){
+						if(defined $ch){
+							if($ch eq '*'){
+								if(defined(next_chr()) and $ch eq '/'){
+									next_chr();
+									last;
+								}
+							}
+							else{
+								next_chr();
+							}
+						}
+						else{
+							error("Unterminated comment");
+						}
+					}
+					next;
+				}
+				else{
+					error("Syntax error (whitespace)");
+				}
+			}
+			else{
+				last;
+			}
+		}
+	}
+
+
+	sub object {
+		my $o = {};
+		my $k;
+
+		if($ch eq '{'){
+			next_chr();
+			white();
+			if($ch eq '}'){
+				next_chr();
+				return $o;
+			}
+			while(defined $ch){
+				$k = string();
+				white();
+
+				if($ch ne ':'){
+					last;
+				}
+
+				next_chr();
+				$o->{$k} = value();
+				white();
+
+				if($ch eq '}'){
+					next_chr();
+					return $o;
+				}
+				elsif($ch ne ','){
+					last;
+				}
+				next_chr();
+				white();
+			}
+
+			error("Bad object");
+		}
+	}
+
+
+	sub word {
+		my $word =  substr($text,$at-1,4);
+
+		if($word eq 'true'){
+			$at += 3;
+			next_chr;
+			return bless {value => 'true'}, 'JSON::NotString'
+		}
+		elsif($word eq 'null'){
+			$at += 3;
+			next_chr;
+			return bless {value => undef}, 'JSON::NotString'
+		}
+		elsif($word eq 'fals'){
+			$at += 3;
+			if(substr($text,$at,1) eq 'e'){
+				$at++;
+				next_chr;
+				return bless {value => 'false'}, 'JSON::NotString'
+			}
+		}
+
+		error("Syntax error (word)");
+	}
+
+
+	sub number {
+		my $n    = '';
+		my $v;
+
+		if($ch eq '-'){
+			$n = '-';
+			next_chr;
+		}
+
+		while($ch =~ /\d/){
+			$n .= $ch;
+			next_chr;
+		}
+
+		if($ch eq '.'){
+			$n .= '.';
+			while(defined(next_chr) and $ch =~ /\d/){
+				$n .= $ch;
+			}
+		}
+
+		$v .= $n;
+
+		return $v;
+	}
+
+
+	sub array {
+		my $a  = [];
+
+		if($ch eq '['){
+			next_chr();
+			white();
+			if($ch eq ']'){
+				next_chr();
+				return $a;
+			}
+			while(defined($ch)){
+				push @$a, value();
+				white();
+				if($ch eq ']'){
+					next_chr();
+					return $a;
+				}
+				elsif($ch ne ','){
+					last;
+				}
+				next_chr();
+				white();
+			}
+		}
+
+		error("Bad array");
+	}
+
+
+	sub error {
+		my $error = shift;
+		die "$error at $at in $text.";
+	}
+
+} # PARSE
+
+
 
 package JSON::NotString;
 
@@ -80,16 +274,16 @@ use overload (
 	},
 );
 
-
 1;
 
 __END__
 
 =head1 SEE ALSO
 
-L<Parse::RecDescent>
+L<http://www.crockford.com/JSON/index.html>
 
-L</http://www.crockford.com/JSON/index.html>
+This module is an implementation of L<http://www.crockford.com/JSON/json.js>.
+
 
 =head1 COPYRIGHT
 

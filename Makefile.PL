@@ -6,7 +6,6 @@ WriteMakefile(
     'NAME'		=> 'JSON',
     'VERSION_FROM'	=> 'lib/JSON.pm', # finds $VERSION
     'PREREQ_PM'		=> {
-              Parse::RecDescent => 0,
               Test::More        => 0,
     }, # e.g., Module::Name => 1.1
     ($] >= 5.005 ?    ## Add these new keywords supported since 5.005
