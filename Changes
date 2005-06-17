@@ -1,12 +1,15 @@
 Revision history for Perl extension JSON.
 
+0.97  Fri Jun 17 11:06:23 2005
+	- fixed escaped character handling in JSON::Parser.
+	  (thanks to Jeremy Muhlich <jmuhlich[at]bitflood.org>)
+
 0.96  Fri May 20 17:17:37 2005
 	- fixed pod docs (thanks to SHIMADA).
 	- added charset optoin in JSONRPC.
 
 0.95  Thu May 19 06:26:25 2005
 	- now JSON::Parser is ten times as fast as before.
-	- added '\u' handling (JSON::Parser, JSON::Converter)
 
 0.94  Thu May 19 06:26:25 2005
 	- added '\u' handling (JSON::Parser, JSON::Converter)

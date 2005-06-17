@@ -8,7 +8,17 @@ package JSON::Parser;
 use vars qw($VERSION);
 use strict;
 
-$VERSION     = 0.903;
+$VERSION     = 0.91;
+
+my %escapes = ( #  by Jeremy Muhlich <jmuhlich [at] bitflood.org>
+  b    => "\x8",
+  t    => "\x9",
+  n    => "\xA",
+  f    => "\xC",
+  r    => "\xD",
+  '/'  => '/',
+  '\\' => '\\',
+);
 
 
 sub new {
@@ -66,8 +76,8 @@ sub new {
 				}
 				elsif($ch eq '\\'){
 					next_chr();
-					if($ch =~ m{([\\bfnrt/])}){
-						$s .= "\\$1";
+					if(exists $escapes{$ch}){
+						$s .= $escapes{$ch};
 					}
 					elsif($ch eq 'u'){
 						my $u = '';

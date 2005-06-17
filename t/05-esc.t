@@ -5,7 +5,7 @@
 use Test::More;
 use strict;
 #BEGIN { plan tests => 'no_plan' };
-BEGIN { plan tests => 14 };
+BEGIN { plan tests => 17 };
 use JSON;
 #use utf8;
 #########################
@@ -23,7 +23,7 @@ $obj = {test => qq|abc/def|};
 $str = objToJson($obj);
 is($str,q|{"test":"abc\/def"}|);
 $obj = jsonToObj($str);
-is($obj->{test},q|abc\/def|);
+is($obj->{test},q|abc/def|);
 
 $obj = {test => q|abc\def|};
 $str = objToJson($obj);
@@ -64,3 +64,13 @@ is($str,q|{"test":"あいうえお"}|);
 $obj = {"あいうえお" => "かきくけこ"};
 $str = objToJson($obj);
 is($str,q|{"あいうえお":"かきくけこ"}|);
+
+
+$obj = jsonToObj(q|{"id":"abc\ndef"}|);
+is($obj->{id},"abc\ndef",q|{"id":"abc\ndef"}|);
+
+$obj = jsonToObj(q|{"id":"abc\\\ndef"}|);
+is($obj->{id},"abc\\ndef",q|{"id":"abc\\\ndef"}|);
+
+$obj = jsonToObj(q|{"id":"abc\\\\\ndef"}|);
+is($obj->{id},"abc\\\ndef",q|{"id":"abc\\\\\ndef"}|);
