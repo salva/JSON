@@ -13,5 +13,6 @@ t/03-circleref.t
 t/04-autoconv.t
 t/05-esc.t
 t/06-comment.t
+t/07-extra_number.t
 t/rpc01-use.t
 META.yml                                 Module meta-data (added by MakeMaker)

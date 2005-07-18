@@ -4,7 +4,7 @@ package JSON::Converter;
 use vars qw($AUTOCONVERT $VERSION);
 use Carp;
 
-$VERSION     = 0.9902;
+$VERSION     = 0.991;
 
 $AUTOCONVERT = 1;
 
@@ -101,9 +101,15 @@ sub valueToJson {
 		return 'false' if($value =~ /^false$/i);
 	}
 
-	return  _stringfy($value) unless(ref($value));
-
-	if( $value->isa('JASON::NotSring') ){
+	if(! ref($value) ){
+		return _stringfy($value)
+	}
+	elsif(ref($value) eq 'CODE'){
+		my $ret = $value->();
+		return 'null' if(!defined $ret);
+		return _stringfy($ret);
+	}
+	elsif( ! UNIVERSAL::isa($value, 'JSON::NotString') ){
 		die "Invalid value";
 	}
 

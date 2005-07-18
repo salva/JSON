@@ -8,7 +8,7 @@ package JSON::Parser;
 use vars qw($VERSION);
 use strict;
 
-$VERSION     = 0.91;
+$VERSION     = 0.92;
 
 my %escapes = ( #  by Jeremy Muhlich <jmuhlich [at] bitflood.org>
   b    => "\x8",
@@ -212,6 +212,24 @@ sub new {
 	sub number {
 		my $n    = '';
 		my $v;
+
+		if($ch eq '0'){
+			my $peek = substr($text,$at,1);
+			my $hex  = $peek =~ /[xX]/;
+
+			if($hex){
+				($n) = ( substr($text, $at+1) =~ /([0-9a-fA-F]+)/);
+			}
+			else{
+				($n) = ( substr($text, $at) =~ /([0-7]+)/);
+			}
+
+			$at += length($n) + $hex;
+
+			next_chr;
+
+			return $hex ? hex($n) : oct($n);
+		}
 
 		if($ch eq '-'){
 			$n = '-';

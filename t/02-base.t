@@ -1,6 +1,6 @@
 use Test::More;
 use strict;
-BEGIN { plan tests => 30 };
+BEGIN { plan tests => 36 };
 use JSON;
 
 #########################
@@ -96,3 +96,26 @@ $js = '{"id":"}';
 eval q{ jsonToObj($js) };
 like($@, qr/Bad string/i, 'Bad string');
 
+$obj = { foo => sub { "bar"; } };
+$js = objToJson($obj);
+is($js, '{"foo":"bar"}', "coderef bar");
+
+$obj = { foo => sub { return } };
+$js = objToJson($obj);
+is($js, '{"foo":null}', "coderef undef");
+
+$obj = { foo => *STDERR };
+$js = objToJson($obj);
+is($js, '{"foo":"*main::STDERR"}', "type blog");
+
+$obj = { foo => \*STDERR };
+eval q{ $js = objToJson($obj) };
+like($@, qr/Invalid value/i, 'invalid value (ref of type blog)');
+
+$obj = { foo => new JSON };
+eval q{ $js = objToJson($obj) };
+like($@, qr/Invalid value/i, 'invalid value (blessd object)');
+
+$obj = { foo => \$js };
+eval q{ $js = objToJson($obj) };
+like($@, qr/Invalid value/i, 'invalid value (ref)');

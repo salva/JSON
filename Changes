@@ -1,5 +1,12 @@
 Revision history for Perl extension JSON.
 
+0.98  Mon Jul 18 09:34:16 2005
+	- fiex typo in JSON::Converter
+	  (thanks to Tatsuhiko Miyagawa <miyagawa[at]bulknews.net>)
+	- now objToJson( { foo => sub { "bar" } } ) returns {"foo":"bar"}
+	- now JSON::Parser can handle the octal and hexadecimal formats as number.
+	  (thanks to Adam Sussman <adam.sussman[at]ticketmaster.com>)
+
 0.97  Fri Jun 17 11:06:23 2005
 	- fixed escaped character handling in JSON::Parser.
 	  (thanks to Jeremy Muhlich <jmuhlich[at]bitflood.org>)
