@@ -1,6 +1,6 @@
 use Test::More;
 use strict;
-BEGIN { plan tests => 10 };
+BEGIN { plan tests => 24 };
 use JSON;
 
 #########################
@@ -46,4 +46,39 @@ like($@, qr/Bad object/i, 'Bad object (hex)');
 $js  = '{"foo":008}';
 eval q{ $obj = jsonToObj($js) };
 like($@, qr/Bad object/i, 'Bad object (oct)');
+
+
+$js  = '{"foo":0}';
+$obj = jsonToObj($js);
+is($obj->{foo}, 0, "normal 0");
+
+$js  = '{"foo":0.1}';
+$obj = jsonToObj($js);
+is($obj->{foo}, 0.1, "normal 0.1");
+
+
+$js  = '{"foo":10}';
+$obj = jsonToObj($js);
+is($obj->{foo}, 10, "normal 10");
+
+$js  = '{"foo":-10}';
+$obj = jsonToObj($js);
+is($obj->{foo}, -10, "normal -10");
+
+
+$js  = '{"foo":0, "bar":0.1}';
+$obj = jsonToObj($js);
+is($obj->{foo},0,  "normal 0");
+is($obj->{bar},0.1,"normal 0.1");
+
+$js  = '{"foo":[0, 012, 0xFA, 0.123, -0.123, true], "bar":0.1, "hoge":0xfa}';
+$obj = jsonToObj($js);
+is($obj->{foo}->[0], 0,      "complex structure");
+is($obj->{foo}->[1], 10,     "complex structure");
+is($obj->{foo}->[2], 250,    "complex structure");
+is($obj->{foo}->[3], 0.123,  "complex structure");
+is($obj->{foo}->[4], -0.123, "complex structure");
+is(qq|$obj->{foo}->[5]| , 'true', "complex structure");
+is($obj->{bar},  0.1,      "complex structure");
+is($obj->{hoge}, 250,      "complex structure");
 
