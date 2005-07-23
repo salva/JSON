@@ -19,9 +19,9 @@ $obj = {qq|te"st| => qq|abc"def|};
 $str = objToJson($obj);
 is($str,q|{"te\"st":"abc\"def"}|);
 
-$obj = {test => qq|abc/def|};
-$str = objToJson($obj);
-is($str,q|{"test":"abc\/def"}|);
+$obj = {test => qq|abc/def|};   # / => \/
+$str = objToJson($obj);         # but since version 0.99
+is($str,q|{"test":"abc/def"}|); # this handling is deleted.
 $obj = jsonToObj($str);
 is($obj->{test},q|abc/def|);
 

@@ -1,6 +1,6 @@
 use Test::More;
 use strict;
-BEGIN { plan tests => 36 };
+BEGIN { plan tests => 39 };
 use JSON;
 
 #########################
@@ -96,6 +96,8 @@ $js = '{"id":"}';
 eval q{ jsonToObj($js) };
 like($@, qr/Bad string/i, 'Bad string');
 
+{ local $JSON::ExecCoderef = 1;
+
 $obj = { foo => sub { "bar"; } };
 $js = objToJson($obj);
 is($js, '{"foo":"bar"}', "coderef bar");
@@ -103,6 +105,25 @@ is($js, '{"foo":"bar"}', "coderef bar");
 $obj = { foo => sub { return } };
 $js = objToJson($obj);
 is($js, '{"foo":null}', "coderef undef");
+
+$obj = { foo => sub { [1, 2, {foo => "bar"}]; } };
+$js = objToJson($obj);
+is($js, '{"foo":[1,2,{"foo":"bar"}]}', "coderef complex");
+
+}
+
+{ local $JSON::ExecCoderef = 0;
+  local $JSON::SkipInvalid = 1;
+
+$obj = { foo => sub { "bar"; } };
+$js = objToJson($obj);
+is($js, '{"foo":null}', "skipinvalid && coderef bar");
+
+}
+
+$obj = { foo => sub { "bar"; } };
+eval q{ $js = objToJson($obj) };
+like($@, qr/Invalid value/i, 'invalid value (coderef)');
 
 $obj = { foo => *STDERR };
 $js = objToJson($obj);

@@ -1,5 +1,13 @@
 Revision history for Perl extension JSON.
 
+0.99  Sat Jul 23 20:04:24 2005
+	- added pretty-print function.
+	  (thanks to David Wheeler <david[at]kineticode.com>)
+	- made coderef execution optinal.
+	  (thanks to Tatsuhiko Miyagawa <miyagawa[at]bulknews.net> suggestion)
+	- now does not escape for '/'.
+	- added many informations to pod.
+
 0.981 Tue Jul 19 10:28:45 2005
 	- fixed a terrible bug of handling octal and hexadecimal formats.
 	  (thanks to Adam Sussman <adam.sussman[at]ticketmaster.com>)

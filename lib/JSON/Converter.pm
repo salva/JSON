@@ -1,22 +1,34 @@
-
 package JSON::Converter;
+##############################################################################
 
-use vars qw($AUTOCONVERT $VERSION);
 use Carp;
 
-$VERSION     = 0.991;
+$JSON::Converter::VERSION = 0.995;
 
-$AUTOCONVERT = 1;
+##############################################################################
 
-sub new { bless {}, shift; }
+sub new {
+    my $class = shift;
+    bless {indent => 2, pretty => 0, delimiter => 2, @_}, $class;
+}
+
 
 sub objToJson {
 	my $self = shift;
 	my $obj  = shift;
+	my $opt  = shift;
 
-	$self->{_stack_myself} = [];
+	local(@{$self}{qw/autoconv execcoderef skipinvalid/});
+	local(@{$self}{qw/pretty indent delimiter/});
 
-	local $AUTOCONVERT = $JSON::AUTOCONVERT;
+	$self->_initConvert($opt);
+
+	return $self->toJson($obj);
+}
+
+
+sub toJson {
+	my ($self, $obj) = @_;
 
 	if(ref($obj) eq 'HASH'){
 		return $self->hashToJson($obj);
@@ -29,11 +41,14 @@ sub objToJson {
 	}
 }
 
+
 sub hashToJson {
 	my $self = shift;
 	my $obj  = shift;
 	my ($k,$v);
 	my %res;
+
+	my ($pre,$post) = $self->_upIndent() if($self->{pretty});
 
 	if(grep { $_ == $obj } @{ $self->{_stack_myself} }){
 		die "circle ref!";
@@ -56,7 +71,18 @@ sub hashToJson {
 
 	pop @{ $self->{_stack_myself} };
 
-	return '{' . join(',',map { _stringfy($_) . ':' .$res{$_} } keys %res) . '}';
+	$self->_downIndent() if($self->{pretty});
+
+	if($self->{pretty}){
+		my $del = $self->{_delstr};
+		return "{$pre"
+		 . join(",$pre", map { _stringfy($_) . $del .$res{$_} } keys %res)
+		 . "$post}";
+	}
+	else{
+		return '{'. join(',',map { _stringfy($_) .':' .$res{$_} } keys %res) .'}';
+	}
+
 }
 
 
@@ -64,6 +90,8 @@ sub arrayToJson {
 	my $self = shift;
 	my $obj  = shift;
 	my @res;
+
+	my ($pre,$post) = $self->_upIndent() if($self->{pretty});
 
 	if(grep { $_ == $obj } @{ $self->{_stack_myself} }){
 		die "circle ref!";
@@ -85,7 +113,14 @@ sub arrayToJson {
 
 	pop @{ $self->{_stack_myself} };
 
-	return '[' . join(',',@res) . ']';
+	$self->_downIndent() if($self->{pretty});
+
+	if($self->{pretty}){
+		return "[$pre" . join(",$pre" ,@res) . "$post]";
+	}
+	else{
+		return '[' . join(',' ,@res) . ']';
+	}
 }
 
 
@@ -95,7 +130,7 @@ sub valueToJson {
 
 	return 'null' if(!defined $value);
 
-	if($AUTOCONVERT and !ref($value)){
+	if($self->{autoconv} and !ref($value)){
 		return $value  if($value =~ /^-?(?:0|[1-9][\d]*)(?:\.[\d]+)?$/);
 		return 'true'  if($value =~ /^true$/i);
 		return 'false' if($value =~ /^false$/i);
@@ -104,13 +139,15 @@ sub valueToJson {
 	if(! ref($value) ){
 		return _stringfy($value)
 	}
-	elsif(ref($value) eq 'CODE'){
+	elsif($self->{execcoderef} and ref($value) eq 'CODE'){
 		my $ret = $value->();
 		return 'null' if(!defined $ret);
+		return $self->toJson($ret) if(ref($ret));
 		return _stringfy($ret);
 	}
 	elsif( ! UNIVERSAL::isa($value, 'JSON::NotString') ){
-		die "Invalid value";
+		die "Invalid value" unless($self->{skipinvalid});
+		return 'null';
 	}
 
 	return defined $value->{value} ? $value->{value} : 'null';
@@ -126,7 +163,7 @@ sub _stringfy {
 	while($i < $l){
 		my $c = substr($arg,$i++,1);
 		if($c ge ' '){
-			$c =~ s{(["\\/])}{\\$1};
+			$c =~ s{(["\\])}{\\$1};
 			$s .= $c;
 		}
 		elsif($c =~ tr/\n\r\t\f\b/nrtfb/){
@@ -141,7 +178,52 @@ sub _stringfy {
 }
 
 
+##############################################################################
 
+sub _initConvert {
+	my $self = shift;
+	my %opt  = %{ $_[0] } if(@_ > 0 and ref($_[0]) eq 'HASH');
+
+	$self->{autoconv}    = $JSON::AUTOCONVERT if(!defined $self->{autoconv});
+	$self->{execcoderef} = $JSON::ExecCoderef if(!defined $self->{execcoderef});
+	$self->{skipinvalid} = $JSON::SkipInvalid if(!defined $self->{skipinvalid});
+
+	$self->{pretty}      =  $JSON::Pretty    if(!defined $self->{pretty});
+	$self->{indent}      =  $JSON::Indent    if(!defined $self->{indent});
+	$self->{delimiter}   =  $JSON::Delimiter if(!defined $self->{delimiter});
+
+	for my $name (qw/autoconv execcoderef skipinvalid pretty indent delimiter/){
+		$self->{$name} = $opt{$name} if(defined $opt{$name});
+	}
+
+	$self->{_stack_myself} = [];
+	$self->{indent_count}  = 0;
+
+	$self->{_delstr} = 
+		$self->{delimiter} ? ($self->{delimiter} == 1 ? ': ' : ' : ') : ':';
+
+	$self;
+}
+
+
+sub _upIndent {
+	my $self  = shift;
+	my $space = ' ' x $self->{indent};
+	my ($pre,$post) = ('','');
+
+	$post = "\n" . $space x $self->{indent_count};
+
+	$self->{indent_count}++;
+
+	$pre = "\n" . $space x $self->{indent_count};
+
+	return ($pre,$post);
+}
+
+
+sub _downIndent { $_[0]->{indent_count}--; }
+
+##############################################################################
 1;
 __END__
 
