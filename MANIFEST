@@ -16,4 +16,5 @@ t/06-comment.t
 t/07-extra_number.t
 t/08-pretty.t
 t/rpc01-use.t
+t/rpc02-query.t
 META.yml                                 Module meta-data (added by MakeMaker)

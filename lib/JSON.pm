@@ -10,7 +10,7 @@ use JSON::Converter;
 use vars qw($AUTOCONVERT $VERSION
             $ExecCoderef $SkipInvalid $Pretty $Indent $Delimiter);
 
-$VERSION     = 0.99;
+$VERSION     = 0.991;
 
 $AUTOCONVERT = 1;
 $ExecCoderef = 0;
@@ -389,7 +389,12 @@ C<objToJson>, C<jsonToObj>.
 =head1 TODO
 
 C<JSONRPC::Transport::HTTP::Daemon> in L<JSON> 1.00
+(The code has be actually written in JSONRPC::Transport::HTTP.)
 
+Shall I support not only {"foo" : "bar"} but {foo : "bar"}
+or {'foo' : 'bar'} also?
+
+Which name is more desirable? JSONRPC or JSON::RPC.
 
 =head1 SEE ALSO
 
@@ -415,6 +420,11 @@ taught a terrible typo and gave some suggestions.
 David Wheeler E<lt>david[at]kineticode.comE<gt>
 suggested me supporting pretty-printing and
 gave a part of L<PRETY PRINTING>.
+
+Rusty Phillips E<lt>rphillips[at]edats.comE<gt>
+suggested me supporting the query object other than CGI.pm
+for JSONRPC::Transport::HTTP::CGI.
+
 
 And Thanks very much to JSON by JSON.org (Douglas Crockford) and
 JSON-RPC by http://json-rpc.org/

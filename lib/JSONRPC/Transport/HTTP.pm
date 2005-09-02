@@ -4,7 +4,7 @@ use strict;
 use base qw(JSONRPC);
 use vars qw($VERSION);
 
-$VERSION = 0.9002;
+$VERSION = 0.91;
 
 #
 #
@@ -27,6 +27,7 @@ sub new {
 	}
 
 	$self->{charset} = $opt{charset} || DEFAULT_CHARSET;
+
 	return $self;
 }
 
@@ -65,14 +66,16 @@ use CGI;
 use base qw(JSONRPC::Transport::HTTP::Server);
 
 use constant DEFAULT_CHARSET => 'UTF-8';
+use constant MAX_CONTENT_LENGTH => 1024 * 1024 * 5; # 5M
 
 
 sub handle {
-	my $self = shift->new;
+	my $self = shift->new();
 	my %opt  = @_;
-	my $length = $ENV{'CONTENT_LENGTH'} || 0;
 
-	$self->{charset} = $opt{charset} if($opt{charset});
+	for my $name (qw/charset query paramName/){
+		$self->{$name} = $opt{$name} if(exists $opt{$name});
+	}
 
 	$self->SUPER::handle();
 }
@@ -80,11 +83,16 @@ sub handle {
 
 sub request {
 	my $self = shift;
-	my $q    = new CGI;
-	$self->{query} = $q;
-	# check?
+	my $q    = ($self->{query} ||= new CGI);
+	my $name = $self->{paramName};
+	my $len  = $ENV{'CONTENT_LENGTH'} || 0;
+
+	if(MAX_CONTENT_LENGTH < $len){ return; }
+
+	return $q->param($name) if(defined $name);
 	my @name = $q->param;
-	return (@name == 1) ? $q->param($name[0]) : undef;
+	return (@name == 1) ? $q->param($name[0])
+	                    : $q->param('POSTDATA');
 }
 
 
@@ -94,6 +102,7 @@ sub response {
 	my $q       = $self->{query};
 	my $charset = $self->{charset};
 	print $q->header(-type => "text/plain; charset=$charset");
+
 	print $resonse;
 }
 
@@ -191,7 +200,9 @@ sub invalid_request {
 1;
 __END__
 
+=head1 NAME
 
+JSONRPC::Transport::HTTP
 
 =head1 SYNOPSIS
 
@@ -222,16 +233,31 @@ Currently C<JSONRPC> provides only CGI server function.
 
 
 =head1 CHARSET
+
 When the module returns response, its charset is UTF-8 by default.
 You can change it via passing a key/value pair into handle().
 
  my %charset = (charset => 'EUC-JP');
  JSONRPC::Transport::HTTP::CGI->dispatch_to('MyApp')->handle(%charset);
 
+=head1 QUERY OBJECT
+
+If you want to use any other query object instead of C<CGI>
+for JSONRPC::Transport::HTTP::CGI, you can pass C<query> option and
+C<paramName>.
+
+ my %opt = (
+   query     => $session, # CGI::Session object
+   paramName => 'json',
+ );
+
+ JSONRPC::Transport::HTTP::CGI->dispatch_to('MyApp')->handle(%opt);
+
+
 =head1 CAUTION
 
-This module requires CGI.pm which version is more than 2.9.2.
-(become a core module in Perl 5.8.1.)
+JSONRPC::Transport::HTTP::CGI requires CGI.pm which version is more than 2.9.2.
+(the core module in Perl 5.8.1.)
 
 
 =head1 SEE ALSO

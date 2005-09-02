@@ -1,5 +1,14 @@
 Revision history for Perl extension JSON.
 
+0.991 Fri Sep  2 11:48:03 2005
+	- added 'query' optinos and 'paramName' for JSONRPC::Transport::HTTP::CGI
+	  (thanks to Rusty Phillips <rphillips[at]edats.com> suggestion)
+	- added MAX_CONTENT_LENGTH for JSONRPC::Transport::HTTP::CGI.
+	- added TODO
+	  (Rusty Phillips <rphillips[at]edats.com> suggestion)
+	  (Felipe Gasper <gasperfm[at]uc.edu> suggestion)
+	- added t/rpc02-query.t
+
 0.99  Sat Jul 23 20:04:24 2005
 	- added pretty-print function.
 	  (thanks to David Wheeler <david[at]kineticode.com>)
