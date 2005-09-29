@@ -7,6 +7,8 @@ WriteMakefile(
     'VERSION_FROM'	=> 'lib/JSON.pm', # finds $VERSION
     'PREREQ_PM'		=> {
               Test::More        => 0,
+              HTTP::Request     => 0,
+              HTTP::Response    => 0,
     }, # e.g., Module::Name => 1.1
     ($] >= 5.005 ?    ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM => 'lib/JSON.pm', # retrieve abstract from module

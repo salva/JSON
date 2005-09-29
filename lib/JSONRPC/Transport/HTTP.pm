@@ -4,7 +4,31 @@ use strict;
 use base qw(JSONRPC);
 use vars qw($VERSION);
 
-$VERSION = 0.91;
+use HTTP::Request;
+use HTTP::Response;
+
+$VERSION = 1.00;
+
+#
+#
+#
+
+
+package JSONRPC::Transport::HTTP::Client;
+
+use base qw(JSONRPC::Client);
+
+
+sub send { require LWP::UserAgent;
+	my ($self, $content) = @_;
+	my ($url, $proxy_url) = @{$self->{_proxy}};
+
+	my $ua  = LWP::UserAgent->new;
+
+	$ua->proxy(['http','https'], $proxy_url) if($proxy_url);
+	$ua->post($url, Content_Type => 'text/plain', Content => $content);
+}
+
 
 #
 #
@@ -13,11 +37,10 @@ $VERSION = 0.91;
 package JSONRPC::Transport::HTTP::Server;
 
 use base qw(JSONRPC);
-use JSON;
 
 use constant DEFAULT_CHARSET => 'UTF-8';
 
-sub new { 
+sub new {
 	my $self = shift;
 	my %opt  = @_;
 
@@ -26,7 +49,7 @@ sub new {
 		$self = $class->SUPER::new(%opt);
 	}
 
-	$self->{charset} = $opt{charset} || DEFAULT_CHARSET;
+	$self->charset( $opt{charset} || DEFAULT_CHARSET );
 
 	return $self;
 }
@@ -34,31 +57,79 @@ sub new {
 
 sub handle {
 	my $self = shift;
-	my $jp   = $self->{json_parser} || JSON::Parser->new;
+	my $jp   = $self->jsonParser;
 
 	unless(ref $self){ $self = $self->new(@_) }
 
-	if( my $request = $self->request() ){
+	my $req;
+
+	if( $req = $self->request ){
 		$self->{json_data}
-		     = $jp->parse($request) or return $self->invalid_request();
+#		     = eval q| $jp->parse($req->content) | or return $self->invalid_request();
+		     = eval q| $jp->parse($req->content) |
+		        or return $self->send_response( $self->invalid_request() );
 
 		if( defined $self->request_id($self->{json_data}->{id}) ){
-			my $res = $self->handle_method() or return $self->invalid_request();
-			return $self->response($res);
+			my $res = $self->handle_method($req) or return $self->invalid_request();
+			return $self->send_response( $self->response($res) );
 		}
 		else{
 			$self->notification();
-			$self->no_response();
+			$self->send_response( $self->no_response() );
 		}
 	}
 	else{
-		return $self->invalid_request();
+		$self->send_response( $self->invalid_request() );
 	}
 }
+
+
+sub charset {
+	$_[0]->{_charset} = $_[1] if(@_ > 1);
+	$_[0]->{_charset};
+}
+
+
+sub response {
+	my $self    = shift;
+	my $res     = shift;
+	my $charset = $self->charset;
+	my $h    = HTTP::Headers->new;
+
+	$h->header('Content-Type' => "text/plain; charset=$charset");
+
+	HTTP::Response->new(200 => undef, $h, $res);
+}
+
+
+sub invalid_request {
+	my $self    = shift;
+	my $charset = $self->charset;
+	my $h       = HTTP::Headers->new;
+
+	$h->header('Content-Type' => "text/plain; charset=$charset");
+
+	HTTP::Response->new(500 => undef, $h);
+}
+
+
+sub no_response {
+	my $self    = shift;
+	my $charset = $self->charset;
+	my $h       = HTTP::Headers->new;
+
+	$h->header('Content-Type' => "text/plain; charset=$charset");
+
+	HTTP::Response->new(200 => undef, $h);
+}
+
+
+sub send_response { }
 
 #
 #
 #
+
 
 package JSONRPC::Transport::HTTP::CGI;
 
@@ -69,12 +140,15 @@ use constant DEFAULT_CHARSET => 'UTF-8';
 use constant MAX_CONTENT_LENGTH => 1024 * 1024 * 5; # 5M
 
 
+sub new { shift->SUPER::new(@_); }
+
+
 sub handle {
 	my $self = shift->new();
 	my %opt  = @_;
 
-	for my $name (qw/charset query paramName/){
-		$self->{$name} = $opt{$name} if(exists $opt{$name});
+	for my $name (qw/charset paramName query/){
+		$self->$name( $opt{$name} ) if(exists $opt{$name});
 	}
 
 	$self->SUPER::handle();
@@ -83,43 +157,46 @@ sub handle {
 
 sub request {
 	my $self = shift;
-	my $q    = ($self->{query} ||= new CGI);
-	my $name = $self->{paramName};
+	my $q    = $self->query || new CGI;
 	my $len  = $ENV{'CONTENT_LENGTH'} || 0;
 
 	if(MAX_CONTENT_LENGTH < $len){ return; }
 
-	return $q->param($name) if(defined $name);
-	my @name = $q->param;
-	return (@name == 1) ? $q->param($name[0])
-	                    : $q->param('POSTDATA');
+	my $req = HTTP::Request->new($q->request_method, $q->url);
+
+	return if($req->method ne 'POST');
+
+	if(defined $self->paramName){
+		$req->content( $q->param($self->paramName) );
+	}
+	else{
+		my @name = $q->param;
+		$req->content(
+			((@name == 1) ? $q->param($name[0]) : $q->param('POSTDATA'))
+		);
+	}
+
+	return $self->{_request} = $req;
 }
 
 
-sub response {
-	my $self    = shift;
-	my $resonse = shift;
-	my $q       = $self->{query};
-	my $charset = $self->{charset};
-	print $q->header(-type => "text/plain; charset=$charset");
-
-	print $resonse;
+sub send_response {
+	my ($self, $res) = @_;
+	print "Status: " . $res->code . "\015\012" . $res->headers_as_string("\015\012")
+           . "\015\012" . $res->content;
 }
 
 
-sub invalid_request {
-	my $self = shift;
-	my $q    = $self->{query} || new CGI;
-	print $q->header(-status => '500');
+sub query {
+	$_[0]->{_query} = $_[1] if(@_ > 1);
+	$_[0]->{_query};
 }
 
 
-sub no_response {
-	my $self = shift;
-	my $q    = $self->{query} || new CGI;
-	print $q->header(-status => '200');
+sub paramName {
+	$_[0]->{_paramName} = $_[1] if(@_ > 1);
+	$_[0]->{_paramName};
 }
-
 
 #
 #
@@ -137,10 +214,17 @@ sub new {
 		$self = $class->SUPER::new(@_);
 	}
 
-	eval q| require HTTP::Daemon; |;
+	my $pkg;
+	if(  grep { $_ =~ /^SSL_/ } @_ ){
+		$self->{_daemon_pkg} = $pkg = 'HTTP::Daemon::SSL';
+	}
+	else{
+		$self->{_daemon_pkg} = $pkg = 'HTTP::Daemon';
+	}
+	eval qq| require $pkg; |;
 	if($@){ die $@ }
 
-	$self->{_daemon} ||= HTTP::Daemon->new(@_) or die;
+	$self->{_daemon} ||= $pkg->new(@_) or die;
 
 	return $self;
 }
@@ -149,17 +233,15 @@ sub new {
 sub handle {
 	my $self = shift;
 	my %opt  = @_;
-	my $d    = $self->{_daemon} ||= HTTP::Daemon->new(@_) or die;
+	my $d    = $self->{_daemon} ||= $self->{_daemon_pkg}->new(@_) or die;
 
-	$self->{charset} = $opt{charset} if($opt{charset});
-
-	#print __PACKAGE__ . " is running...\n";
+	$self->charset = $opt{charset} if($opt{charset});
 
 	while (my $c = $d->accept) {
 		$self->{con} = $c;
 		while (my $r = $c->get_request) {
 			if ($r->method eq 'POST') {
-				$self->{query} = $r->content;
+				$self->request($r);
 				$self->SUPER::handle();
 			}
 			else {
@@ -171,29 +253,89 @@ sub handle {
 	}
 }
 
+
+
 sub request {
-	my $self = shift;
-	return $self->{query};
+	$_[0]->{_request} = $_[1] if(@_ > 1);
+	$_[0]->{_request};
 }
 
 
-sub response {
-	my $self = shift;
-	my $res  = shift;
-	my $h    = HTTP::Headers->new;
-	my $charset = $self->{charset};
-	$h->header('Content-Type' => "text/plain; charset=$charset");
-	$res = HTTP::Response->new(200 => undef, $h, $res);
+sub send_response {
+	my ($self, $res) = @_;
 	$self->{con}->send_response($res);
 }
 
 
-sub invalid_request {
+#
+#
+#
+
+package JSONRPC::Transport::HTTP::Apache;
+
+use base qw(JSONRPC::Transport::HTTP::Server);
+
+use constant MAX_CONTENT_LENGTH => 1024 * 1024 * 5; # 5M
+
+sub new {
 	my $self = shift;
-	my $res  = "Invalid request.";
-	my $h    = HTTP::Headers->new;
-	$self->{con}->send_error(500 => "Bad Request");
-	return 0;
+
+	require Apache;
+	require Apache::Constants;
+
+	unless (ref $self) {
+		my $class = ref($self) || $self;
+		$self = $class->SUPER::new(@_);
+	}
+
+	return $self;
+}
+
+
+sub request {
+	my $self = shift;
+	my $r    = shift || Apache->request;
+	my $len  = $r->header_in('Content-length');
+
+	$self->{apr} = $r;
+
+	return if($r->method ne 'POST');
+	return if(MAX_CONTENT_LENGTH < $len);
+
+	my $req = HTTP::Request->new($r->method, $r->uri);
+	my ($buf, $content);
+
+	while( $r->read($buf,$len) ){
+		$content .= $buf;
+	}
+
+	$req->content($content);
+
+	return $self->{_request} = $req;
+}
+
+
+
+sub send_response {
+	my ($self, $res) = @_;
+	my $r = $self->{apr};
+
+	$r->send_http_header("text/plain");
+	$r->print($res->content);
+
+	return ($res->code == 200)
+	        ? &Apache::Constants::OK : &Apache::Constants::SERVER_ERROR;
+}
+
+
+sub configure {
+	my $self   = shift;
+	my $config = shift->dir_config;
+	for my $method (keys %$config) {
+		my @values = split(/\s*,\s*/, $config->{$method});
+		$self->$method(@values) if($self->can($method));
+	}
+	$self;
 }
 
 
@@ -220,9 +362,61 @@ JSONRPC::Transport::HTTP
  # In your main cgi script.
  use JSONRPC::Transport::HTTP;
  use MyApp;
-
+ 
  # a la XMLRPC::Lite
  JSONRPC::Transport::HTTP::CGI->dispatch_to('MyApp')->handle();
+
+
+ ##################
+ # Daemon version #
+ ##################
+
+ use strict;
+ use lib qw(. ./lib);
+ use JSONRPC::Transport::HTTP;
+ 
+ my $daemon = JSONRPC::Transport::HTTP::Daemon
+        ->new(LocalPort => 8080)
+        ->dispatch_to('MyApp/Test', 'MyApp/Test2');
+ 
+ $daemon->handle();
+
+ ##################
+ # Apache version #
+ ##################
+
+ http.conf or .htaccess
+
+   SetHandler  perl-script
+   PerlHandler Apache::JSONRPC
+   PerlModule  MyApp::Test
+   PerlSetVar  dispatch_to "MyApp::Test, MyApp/Test2/"
+
+
+ #--------------------------
+ # Client
+ #--------------------------
+
+ use JSONRPC::Transport::HTTP;
+ my $uri = 'http://www.example.com/MyApp/Test/';
+
+ my $res = JSONRPC::Transport::HTTP
+            ->proxy($uri)
+            ->call('echo',['This is test.'])
+            ->result;
+
+ if($res->error){
+   print $res->error,"\n";
+ }
+ else{
+   print $res->result,"\n";
+ }
+
+ # or
+
+ my $client = JSONRPC::Transport::HTTP->proxy($uri);
+ 
+ print $client->echo('This is test.'); # the alias, _echo is same.
 
 
 =head1 DESCRIPTION
@@ -259,6 +453,10 @@ C<paramName>.
 JSONRPC::Transport::HTTP::CGI requires CGI.pm which version is more than 2.9.2.
 (the core module in Perl 5.8.1.)
 
+
+Since verion 1.0, JSONRPC::Transport::HTTP requires L<HTTP::Request>
+and L<HTTP::Response>. For using JSONRPC::Transport::HTTP::Client,
+you need L<LWP::UserAgent>.
 
 =head1 SEE ALSO
 

@@ -1,19 +1,30 @@
 package JSONRPC;
 
- # halfway JSON-RPC server
+ # JSON-RPC server and client
 
 use strict;
 use JSON;
 
 use vars qw($VERSION);
 
-$VERSION = 0.9001;
+$VERSION = 0.99;
 
 
 sub new {
-	my $class = shift;
-	my $self  = {};
-	bless $self,$class;
+	my $self = bless {}, shift;
+	$self->jsonParser( JSON::Parser->new() );
+	$self->jsonConverter( JSON::Converter->new );
+	$self;
+}
+
+
+sub proxy { # re-bless a client class
+	my ($self,$url,$proxy_url) = @_;
+	$self = $self->new unless(ref($self));
+	my $class = ref($self) ? ref($self) . '::Client' : 'JSONRPC::Client';
+	$self = bless $self, $class;
+	$self->{_proxy} = [$url,$proxy_url] if(@_ > 1);
+	$self;
 }
 
 
@@ -43,6 +54,7 @@ sub handle { }
 
 
 # get a request from client (subclass must have the implementation.)
+# The return value is a HTTP::Request object.
 
 sub requset { }
 
@@ -74,31 +86,59 @@ sub get_request_data {
 
 
 # look for the method from module names set by the dispatch_to().
+# $r is a HTTP::Request object.
 
 sub find_method {
-	my $self   = shift;
-	my $method = shift;
+	my ($self, $method, $r) = @_;
+	my $path  = ($r and $r->uri) ? ($r->uri->path || '') : '';
+
+	$path =~ s{^/|/$}{}g;
+	$path =~ s{/}{::}g;
 
 	no strict 'refs';
 
 	for my $srv ( @{$self->{_dispatch_to}} ){
-		if($srv->can($method)){
-			my $func = *{"$srv\::$method"};
-			return $func;
+
+		if($srv =~ m{/}){ # URI
+			my $class = _path_to_class($srv);
+			if($path eq $class){
+				unless(defined %{"$class\::"}){
+					eval qq| require $class |;
+					if($@){ warn $@; return; }
+				}
+				if(my $func = $class->can($method)){
+					return $func;
+				}
+			}
+			else{
+				next;
+			}
+		}
+		else{
+			if(my $func = $srv->can($method)){
+				return $func;
+			}
 		}
 	}
 
 	return;
 }
 
+sub _path_to_class {
+	my $path = $_[0];
+	$path =~ s{^/|/$}{}g;
+	$path =~ s{/}{::}g;
+	return $path;
+}
+
 # execution of method : return value is JSON-RPC data struture.
 # $func->($self,@$params) returns a scalar or a hash ref or an array ref.
 
 sub handle_method {
-	my $self   = shift;
+	my ($self, $r)       = @_;
 	my ($method,$params) = $self->get_request_data();
 
-	if(my $func = $self->find_method($method)){
+	if( my $func = $self->find_method($method, $r) ){
 		my $result = $func->($self,@$params);
 		$self->set_response_data($result)
 	}
@@ -139,7 +179,7 @@ sub set_response_data {
 		error  => $error,
 	};
 
-	return objToJson($result);
+	return $self->jsonConverter->objToJson($result);
 }
 
 
@@ -156,7 +196,7 @@ sub set_err {
 		error  => $error,
 	};
 
-	return objToJson($result);
+	return $self->jsonConverter->objToJson($result);
 }
 
 
@@ -185,13 +225,157 @@ sub request_id {
 }
 
 
+# accessor to JSON::Parser
+
+sub jsonParser {
+	$_[0]->{json_parser} = $_[1] if(@_ > 1);
+	return $_[0]->{json_parser};
+}
+
+
+# accessor to JSON::Converter
+
+sub jsonConverter {
+	$_[0]->{json_converter} = $_[1] if(@_ > 1);
+	return $_[0]->{json_converter};
+}
+
+
+#
+# Client
+#
+
+package JSONRPC::Client;
+
+use base qw(JSONRPC);
+use vars qw($AUTOLOAD);
+
+
+sub AUTOLOAD {
+	my $self = shift;
+	my $attr = $AUTOLOAD;
+
+	$attr =~ s/.*:://;
+
+	return if($attr eq 'DESTROY');
+
+	$attr =~ s/^_//;
+
+	my $res = $self->call($attr,[@_])->result;
+
+	if($res->error){
+		$self->{_error} = $res->{error};
+		return;
+	}
+	else{
+		$res->result;
+	}
+}
+
+
+# call($method, $params $id)
+# without $id, 'JsonRpcClient' is set.
+# explicitly set undef into $id, notification mode.
+
+sub call {
+	my ($self, $method, $params, $id) = @_;
+
+	if(@_ == 3){ $id = 'JsonRpcClient'; }
+	$self->{_id} = $id;
+
+	my $content = eval q|
+		$self->jsonConverter->objToJson({
+			method => $method, params => $params, id => $id
+		})
+	| or die $@;
+
+	$self->{_response} = $self->send($content);
+	$self;
+}
+
+
+# post data (subclass must have the implementation.)
+
+sub send {}
+
+
+# return the result value.
+
+sub result {
+	my ($self) = @_;
+	my $response  = $self->{_response};
+
+	my $result = bless {
+		success => $response->is_success,
+		error   => undef,
+		result  => undef,
+		id      => undef,
+	}, 'JSONRPC::Response';
+
+	unless( $response->is_success ){
+		$self->{_error} = $response->code;
+		$result->error($response->code);
+		return $result;
+	}
+	else{
+		$self->{_error} = undef;
+	}
+
+	my $json = $response->content;
+	my $obj  = eval q| $self->jsonParser->jsonToObj($json, {unmapping => 1}) |;
+
+	return if(!$obj); # notification?
+
+	if($obj->{id} eq $self->{_id}){
+		$result->result( $obj->{result} );
+		$result->error( $obj->{error} );
+		$result->id( $obj->{id} );
+	}
+
+	return $result;
+}
+
+
+# accessor to status code. (when response is not sucessful, set status code)
+
+sub error { $_[0]->{_error}; }
+
+
+#
+#
+#
+
+package JSONRPC::Response;
+
+use base qw(HTTP::Response);
+
+sub is_success { $_[0]->{success} }
+
+sub result {
+	$_[0]->{result} = $_[1] if(@_ > 1);
+	$_[0]->{result};
+}
+
+
+sub error {
+	$_[0]->{error} = $_[1] if(@_ > 1);
+	$_[0]->{error};
+}
+
+
+sub id {
+	$_[0]->{id} = $_[1] if(@_ > 1);
+	$_[0]->{id};
+}
+
+
 1;
 __END__
 
 
 =head1 NAME
 
- JSONRPC - (halfway) server implementation of JSON-RPC protocol
+ JSONRPC - Perl implementation of JSON-RPC protocol
 
 =head1 SYNOPSIS
 
@@ -214,12 +398,66 @@ __END__
  JSONRPC::Transport::HTTP::CGI->dispatch_to('MyApp')->handle();
 
 
+ #--------------------------
+ # Client version
+ use JSONRPC::Transport::HTTP;
+ my $uri = 'http://www.example.com/MyApp/Test/';
+
+ my $res = JSONRPC::Transport::HTTP
+            ->proxy($uri)
+            ->call('echo',['This is test.'])
+            ->result;
+
+ if($res->error){
+   print $res->error,"\n";
+ }
+ else{
+   print $res->result,"\n";
+ }
+
+ # or
+
+ my $client = JSONRPC::Transport::HTTP->proxy($uri);
+ 
+ print $client->echo('This is test.'); # the alias, _echo is same.
+
+
 =head1 DESCRIPTION
 
-This module implementes JSON-RPC (L<http://json-rpc.org/>) server.
-Most ideas were borrowed from L<XMLRPC::Lite>.
+This module implementes JSON-RPC (L<http://json-rpc.org/>) server
+and client. Most ideas were borrowed from L<XMLRPC::Lite>.
 Currently C<JSONRPC> provides CGI server function.
 
+
+=head1 METHOD
+
+=over 4
+
+
+=item dispatch_to
+
+
+=item handle
+
+
+=item jsonParser
+
+The accessor of a JSON::Parser object.
+
+ my $srv = JSONRPC::Transport::HTTP::CGI->new;
+ $srv->jsonParser->{unmapping} = 1;
+
+
+=item jsonConverter
+
+The accessor of a JSON::Converter object.
+
+=item proxy($uri,[$proxy_uri])
+
+takes a service uri and optional proxy uri.
+returns a client object.
+
+=back
 
 =head1 SEE ALSO
 

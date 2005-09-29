@@ -1,5 +1,25 @@
 Revision history for Perl extension JSON.
 
+1.00 Fri Sep 30 06:45:13 2005
+	! JSONRPC and JSONRPC::Transport::HTTP was changed largely.
+	  If you have used this module, please pay attention to it before using.
+
+	- improved _stringfy() in JSON::Converter to make more fast.
+	  (thanks to Alden DoRosario" <adorosario[at]chitika.com>)
+	- modified JSONRPC::Transport::HTTP totally.
+	   now JSONRPC::Transport::HTTP requires HTTP::Request & HTPP::Response.
+	- added Apache::JSONRPC and JSONRPC::Transport::HTTP::Apache.
+	- added doc of JSONRPC::Transport::HTTP::Daemon.
+	- modified find_method() in JSONRPC to set paths to service.
+	   and added t/rpc03-query2.t
+	- added JSONRPC::Transport::HTTP::Client.
+	   requires LWP::UserAgent.
+	- added unmapping option.
+	   added t/04-json_opt.t & modified t/02-base.t
+	- added barekey option and single quotation option.
+	   JSON::Parser supports to parse {foo => "bar"} or {foo => 'bar'}.
+
+
 0.991 Fri Sep  2 11:48:03 2005
 	- added 'query' optinos and 'paramName' for JSONRPC::Transport::HTTP::CGI
 	  (thanks to Rusty Phillips <rphillips[at]edats.com> suggestion)

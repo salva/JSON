@@ -3,7 +3,7 @@ package JSON::Converter;
 
 use Carp;
 
-$JSON::Converter::VERSION = 0.995;
+$JSON::Converter::VERSION = 1.00;
 
 ##############################################################################
 
@@ -131,7 +131,7 @@ sub valueToJson {
 	return 'null' if(!defined $value);
 
 	if($self->{autoconv} and !ref($value)){
-		return $value  if($value =~ /^-?(?:0|[1-9][\d]*)(?:\.[\d]+)?$/);
+		return $value  if($value =~ /^-?(?:0|[1-9][\d]*)(?:\.[\d]*)?$/);
 		return 'true'  if($value =~ /^true$/i);
 		return 'false' if($value =~ /^false$/i);
 	}
@@ -154,27 +154,22 @@ sub valueToJson {
 }
 
 
+%esc = (
+	"\n" => '\n',
+	"\r" => '\r',
+	"\t" => '\t',
+	"\f" => '\f',
+	"\b" => '\b',
+	"\"" => '\"',
+	"\\" => '\\\\',
+);
+
+
 sub _stringfy {
 	my $arg = shift;
-	my $l   = length $arg;
-	my $s   = '"';
-	my $i = 0;
-
-	while($i < $l){
-		my $c = substr($arg,$i++,1);
-		if($c ge ' '){
-			$c =~ s{(["\\])}{\\$1};
-			$s .= $c;
-		}
-		elsif($c =~ tr/\n\r\t\f\b/nrtfb/){
-			$s .= '\\' . $c;
-		}
-		else{
-			$s .= '\\u00' . unpack('H2',$c);
-		}
-	}
-
-	return $s . '"';
+	$arg =~ s/([\\"\n\r\t\f\b])/$esc{$1}/eg;
+	$arg =~ s/([\x00-\x07\x0b\x0e-\x1f])/'\\u00' . unpack('H2',$1)/eg;
+	return '"' . $arg . '"';
 }
 
 

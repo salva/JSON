@@ -1,4 +1,4 @@
-JSON version 0.99
+JSON version 1.00
 =================
 
 DESCRIPTION
@@ -26,8 +26,18 @@ This module requires these other modules and libraries:
 
   Test::More
 
+If you want to use JSONRPC::Transport::HTTP, you need
+
+  HTTP::Request,
+  HTTP::Response
+
 If you want to use JSONRPC::Transport::HTTP::Daemon,
 HTTP::Daemon is required.
+
+If you want to use JSONRPC::Transport::HTTP::Client, you need
+LWP::UserAgent.
+
+
 
 COPYRIGHT AND LICENCE
 

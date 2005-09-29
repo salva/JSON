@@ -1,6 +1,6 @@
 use Test::More;
 use strict;
-BEGIN { plan tests => 39 };
+BEGIN { plan tests => 43 };
 use JSON;
 
 #########################
@@ -82,6 +82,17 @@ ok(!$obj->[2],'null');
 $js = objToJson($obj);
 is($js,'[true,false,null]');
 
+{ local $JSON::UnMapping = 1;
+$js  = q|[true,false,null]|;
+$obj = jsonToObj($js);
+is($obj->[0],1,'unmapping true');
+is($obj->[1],0,'unmapping false');
+ok(!defined $obj->[2],'unmapping null');
+}
+
+$js = objToJson([JSON::True, JSON::False, JSON::Null]);
+is($js,'[true,false,null]', 'JSON::NotString [true,false,null]');
+
 $obj = ["\x01"];
 is($js = objToJson($obj),'["\\u0001"]');
 $obj = jsonToObj($js);
@@ -94,6 +105,7 @@ is($obj->[0],"\e");
 
 $js = '{"id":"}';
 eval q{ jsonToObj($js) };
+#jsonToObj($js);
 like($@, qr/Bad string/i, 'Bad string');
 
 { local $JSON::ExecCoderef = 1;
@@ -140,3 +152,4 @@ like($@, qr/Invalid value/i, 'invalid value (blessd object)');
 $obj = { foo => \$js };
 eval q{ $js = objToJson($obj) };
 like($@, qr/Invalid value/i, 'invalid value (ref)');
+

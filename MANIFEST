@@ -4,6 +4,7 @@ lib/JSON/Parser.pm
 lib/JSON/Converter.pm
 lib/JSONRPC.pm
 lib/JSONRPC/Transport/HTTP.pm
+lib/Apache/JSONRPC.pm
 Makefile.PL
 MANIFEST
 README
@@ -15,6 +16,11 @@ t/05-esc.t
 t/06-comment.t
 t/07-extra_number.t
 t/08-pretty.t
+t/09-quote.t
 t/rpc01-use.t
 t/rpc02-query.t
+t/rpc03-query2.t
+t/rpc04-json_opt.t
+t/MyApp/Test.pm
+t/MyApp/Test2.pm
 META.yml                                 Module meta-data (added by MakeMaker)
