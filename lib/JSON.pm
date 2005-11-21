@@ -8,9 +8,10 @@ use JSON::Converter;
 @JSON::EXPORT = qw(objToJson jsonToObj);
 
 use vars qw($AUTOCONVERT $VERSION $UnMapping $BareKey $QuotApos
-            $ExecCoderef $SkipInvalid $Pretty $Indent $Delimiter);
+            $ExecCoderef $SkipInvalid $Pretty $Indent $Delimiter
+            $KeySort $ConvBlessed);
 
-$VERSION     = '1.00';
+$VERSION     = '1.01';
 
 $AUTOCONVERT = 1;
 $SkipInvalid = 0;
@@ -21,6 +22,7 @@ $Delimiter   = 2; # (for pretty-print)  0 => ':', 1 => ': ', 2 => ' : '
 $UnMapping   = 0; # 
 $BareKey     = 0; # 
 $QuotApos    = 0; # 
+$KeySort     = undef;  # Code-ref to provide sort ordering in converter
 
 my $parser; # JSON => Perl
 my $conv;   # Perl => JSON
@@ -31,25 +33,27 @@ my $conv;   # Perl => JSON
 ##############################################################################
 
 sub new {
-	my $class = shift;
-	my %opt   = @_;
-	bless {
-		conv   => undef,  # JSON::Converter [perl => json]
-		parser => undef,  # JSON::Parser    [json => perl]
-		# below fields are for JSON::Converter
-		autoconv    => $AUTOCONVERT,
-		skipinvalid => $SkipInvalid,
-		execcoderef => $ExecCoderef,
-		pretty      => $Pretty     ,
-		indent      => $Indent     ,
-		delimiter   => $Delimiter  ,
-		# below fields are for JSON::Parser
-		unmapping   => $UnMapping,
-		quotapos    => $BareKey  ,
-		barekey     => $QuotApos ,
-		# overwrite
-		%opt,
-	}, $class;
+    my $class = shift;
+    my %opt   = @_;
+    bless {
+        conv   => undef,  # JSON::Converter [perl => json]
+        parser => undef,  # JSON::Parser    [json => perl]
+        # below fields are for JSON::Converter
+        autoconv    => $AUTOCONVERT,
+        skipinvalid => $SkipInvalid,
+        execcoderef => $ExecCoderef,
+        pretty      => $Pretty     ,
+        indent      => $Indent     ,
+        delimiter   => $Delimiter  ,
+        keysort     => $KeySort    ,
+        convblessed => $ConvBlessed,
+        # below fields are for JSON::Parser
+        unmapping   => $UnMapping,
+        quotapos    => $QuotApos ,
+        barekey     => $BareKey  ,
+        # overwrite
+        %opt,
+    }, $class;
 }
 
 
@@ -58,39 +62,39 @@ sub new {
 ##############################################################################
 
 sub jsonToObj {
-	my $self = shift;
-	my $js   = shift;
+    my $self = shift;
+    my $js   = shift;
 
-	if(!ref($self)){ # class method
-		my $opt = __PACKAGE__->_getParamsForParser($_[0]);
-		$js = $self;
-		$parser ||= new JSON::Parser;
-		$parser->jsonToObj($js, $opt);
-	}
-	else{ # instance method
-		my $opt = $self->_getParamsForParser($_[0]);
-		$self->{parser} ||= ($parser ||= JSON::Parser->new);
-		$self->{parser}->jsonToObj($js, $opt);
-	}
+    if(!ref($self)){ # class method
+        my $opt = __PACKAGE__->_getParamsForParser($_[0]);
+        $js = $self;
+        $parser ||= new JSON::Parser;
+        $parser->jsonToObj($js, $opt);
+    }
+    else{ # instance method
+        my $opt = $self->_getParamsForParser($_[0]);
+        $self->{parser} ||= ($parser ||= JSON::Parser->new);
+        $self->{parser}->jsonToObj($js, $opt);
+    }
 }
 
 
 sub objToJson {
-	my $self = shift || return;
-	my $obj  = shift;
+    my $self = shift || return;
+    my $obj  = shift;
 
-	if(ref($self) !~ /JSON/){ # class method
-		my $opt = __PACKAGE__->_getParamsForConverter($obj);
-		$obj  = $self;
-		$conv ||= JSON::Converter->new();
-		$conv->objToJson($obj, $opt);
-	}
-	else{ # instance method
-		my $opt = $self->_getParamsForConverter($_[0]);
-		$self->{conv}
-		 ||= JSON::Converter->new( %$opt );
-		$self->{conv}->objToJson($obj, $opt);
-	}
+    if(ref($self) !~ /JSON/){ # class method
+        my $opt = __PACKAGE__->_getParamsForConverter($obj);
+        $obj  = $self;
+        $conv ||= JSON::Converter->new();
+        $conv->objToJson($obj, $opt);
+    }
+    else{ # instance method
+        my $opt = $self->_getParamsForConverter($_[0]);
+        $self->{conv}
+         ||= JSON::Converter->new( %$opt );
+        $self->{conv}->objToJson($obj, $opt);
+    }
 }
 
 
@@ -98,49 +102,60 @@ sub objToJson {
 
 
 sub _getParamsForParser {
-	my ($self, $opt) = @_;
-	my $params;
+    my ($self, $opt) = @_;
+    my $params;
 
-	if(ref($self)){ # instance
-		my @names = qw(unmapping quotapos barekey);
-		my ($unmapping, $quotapos, $barekey) = @{$self}{ @names };
-		$params = {
-			unmapping => $unmapping, quotapos => $quotapos, barekey => $barekey,
-		};
-	}
-	else{ # class
-		$params = {
-			unmapping => $UnMapping, barekey => $BareKey, quotapos => $QuotApos,
-		};
-	}
+    if(ref($self)){ # instance
+        my @names = qw(unmapping quotapos barekey);
+        my ($unmapping, $quotapos, $barekey) = @{$self}{ @names };
+        $params = {
+            unmapping => $unmapping, quotapos => $quotapos, barekey => $barekey,
+        };
+    }
+    else{ # class
+        $params = {
+            unmapping => $UnMapping, barekey => $BareKey, quotapos => $QuotApos,
+        };
+    }
 
-	if($opt and ref($opt) eq 'HASH'){ %$params = ( %$opt ); }
+    if($opt and ref($opt) eq 'HASH'){
+        for my $key ( keys %$opt ){
+            $params->{$key} = $opt->{$key};
+        }
+    }
 
-	return $params;
+    return $params;
 }
 
 
 sub _getParamsForConverter {
-	my ($self, $opt) = @_;
-	my $params;
+    my ($self, $opt) = @_;
+    my $params;
 
-	if(ref($self)){ # instance
-		my @names = qw(pretty indent delimiter autoconv);
-		my ($pretty, $indent, $delimiter, $autoconv) = @{$self}{ @names };
-		$params = {
-			pretty => $pretty, indent => $indent,
-			delimiter => $delimiter, autoconv => $autoconv,
-		};
-	}
-	else{ # class
-		$params = {
-			pretty => $Pretty, indent => $Indent, delimiter => $Delimiter,
-		};
-	}
+    if(ref($self)){ # instance
+        my @names = qw(pretty indent delimiter autoconv keysort convblessed);
+        my ($pretty, $indent, $delimiter, $autoconv, $keysort, $convblessed)
+                                                           = @{$self}{ @names };
+        $params = {
+            pretty => $pretty, indent => $indent,
+            delimiter => $delimiter, autoconv => $autoconv,
+            keysort => $keysort, convblessed => $convblessed,
+        };
+    }
+    else{ # class
+        $params = {
+            pretty => $Pretty, indent => $Indent, delimiter => $Delimiter,
+            keysort => $KeySort, convbless => $ConvBlessed,
+        };
+    }
 
-	if($opt and ref($opt) eq 'HASH'){ %$params = ( %$opt ); }
+    if($opt and ref($opt) eq 'HASH'){
+        for my $key ( keys %$opt ){
+            $params->{$key} = $opt->{$key};
+        }
+    }
 
-	return $params;
+    return $params;
 }
 
 ##############################################################################
@@ -157,6 +172,10 @@ sub delimiter { $_[0]->{delimiter} = $_[1] if(defined $_[1]); $_[0]->{delimiter}
 
 sub unmapping { $_[0]->{unmapping} = $_[1] if(defined $_[1]); $_[0]->{unmapping} }
 
+sub keysort { $_[0]->{keysort} = $_[1] if(defined $_[1]); $_[0]->{keysort} }
+
+sub convblessed { $_[0]->{convblessed} = $_[1] if(defined $_[1]); $_[0]->{convblessed} }
+
 ##############################################################################
 # NON STRING DATA
 ##############################################################################
@@ -164,23 +183,30 @@ sub unmapping { $_[0]->{unmapping} = $_[1] if(defined $_[1]); $_[0]->{unmapping}
 # See JSON::Parser for JSON::NotString.
 
 sub Number {
-	my $num = shift;
-	if(!defined $num or $num !~ /^-?(?:0|[1-9][\d]*)(?:\.[\d]*)?$/){
-		return undef;
-	}
-	bless {value => $num}, 'JSON::NotString';
+    my $num = shift;
+
+    return undef if(!defined $num);
+
+    if($num =~ /^-?(?:0|[1-9][\d]*)(?:\.[\d]*)?$/
+               or $num =~ /^0[xX](?:[0-9a-zA-Z])+$/)
+    {
+        return bless {value => $num}, 'JSON::NotString';
+    }
+    else{
+        return undef;
+    }
 }
 
 sub True {
-	bless {value => 'true'}, 'JSON::NotString';
+    bless {value => 'true'}, 'JSON::NotString';
 }
 
 sub False {
-	bless {value => 'false'}, 'JSON::NotString';
+    bless {value => 'false'}, 'JSON::NotString';
 }
 
 sub Null {
-	bless {value => undef}, 'JSON::NotString';
+    bless {value => undef}, 'JSON::NotString';
 }
 
 ##############################################################################
@@ -278,6 +304,14 @@ See L</PRETY PRINTING> for more info.
 
 See L</PRETY PRINTING> for more info.
 
+=item keysort
+
+See L</HASH KEY SORT ORDER> for more info.
+
+=item convblessed
+
+See L</BLESSED OBJECT> for more info.
+
 =back 
 
 
@@ -337,8 +371,24 @@ See L</PRETY PRINTING> for more info.
 
 =item unmapping()
 
+=item unmapping($bool)
+
 This is an accessor to C<unmapping>.
 See L</UNMAPPING OPTION> for more info.
+
+=item keysort()
+
+=item keysort($coderef)
+
+This is an accessor to C<keysort>.
+See L</HASH KEY SORT ORDER> for more info.
+
+=item convblessed()
+
+=item convblessed($bool)
+
+This is an accessor to C<convblessed>.
+See L</BLESSED OBJECT> for more info.
 
 =back
 
@@ -415,10 +465,10 @@ it is not C<{"num" : 10.02}>.
 You can explicitly sepcify:
 
  $obj = {
- 	id     => JSON::Number(10.02),
- 	bool1  => JSON::True,
- 	bool2  => JSON::False,
- 	noval  => JSON::Null,
+    id     => JSON::Number(10.02),
+    bool1  => JSON::True,
+    bool2  => JSON::False,
+    noval  => JSON::Null,
  };
 
  $json->objToJson($obj);
@@ -457,18 +507,59 @@ With $JSON::BareKey:
  local $JSON::QuotApos = 1;
  $obj = jsonToObj(q|{foo:'bar'}|);
 
+=head1 HASH KEY SORT ORDER
+
+By default objToJSON will serialize hashes with their keys in random
+order.  To control the ordering of hash keys, you can provide a standard
+'sort' function that will be used to control how hashes are converted.
+
+You can provide either a fully qualified function name or a CODEREF to
+$JSON::KeySort or $obj->keysort.
+
+Note that since the sort function is external to the JSON module the
+magical $a and $b arguments will not be in the same package.  In order
+to gain access to the sorting arguments, you must either:
+
+  o use the ($$) prototype (slow)
+  o Fully qualify $a and $b from the JSON::Converter namespace
+
+See the documentation on sort for more information.
+
+ local $JSON::KeySort = 'My::Package::sort_function';
+
+ or
+
+ local $JSON::KeySort = \&_some_function;
+
+ sub sort_function {
+    $JSON::Converter::a cmp $JSON::Converter::b;
+ }
+
+ or
+
+ sub sort_function ($$) {
+    my ($a, $b) = @_;
+
+    $a cmp $b
+ }
+
+=head1 BLESSED OBJECT
+
+By default, JSON::Converter doesn't deal with any blessed object
+(returns C<undef> or C<null> in the JSON format).
+If you use $JSON::ConvBlessed or C<convblessed> option,
+the module can convert most blessed object (hashref or arrayref).
+
+  local $JSON::ConvBlessed = 1;
+  print objToJson($blessed);
+
+This option slows down the converting speed.
 
 =head1 EXPORT
 
 C<objToJson>, C<jsonToObj>.
 
 =head1 TODO
-
-C<JSONRPC::Transport::HTTP::Daemon> in L<JSON> 1.00
-(The code has be actually written in JSONRPC::Transport::HTTP.)
-
-Shall I support not only {"foo" : "bar"} but {foo : "bar"}
-or {'foo' : 'bar'} also?
 
 Which name is more desirable? JSONRPC or JSON::RPC.
 
@@ -491,6 +582,7 @@ escaped character handling in JSON::Parser.
 
 Adam Sussman E<lt>adam.sussman[at]ticketmaster.comE<gt>
 suggested the octal and hexadecimal formats as number.
+Sussman also sent the 'key sort' and 'hex number autoconv' patch.
 
 Tatsuhiko Miyagawa E<lt>miyagawa[at]bulknews.netE<gt>
 taught a terrible typo and gave some suggestions.
@@ -512,6 +604,12 @@ helped my decision to support the bare key option.
 
 Alden DoRosario E<lt>adorosario[at]chitika.comE<gt>
 tought JSON::Conveter::_stringfy (<= 0.992) is very slow.
+
+Brad Baxter sent to 'key sort' patch and thought a bug in JSON.
+
+Jacob and Jay Buffington sent 'blessed object conversion' patch.
+
+Thanks to Peter Edwards, IVAN, and all testers for bug reports.
 
 And Thanks very much to JSON by JSON.org (Douglas Crockford) and
 JSON-RPC by http://json-rpc.org/

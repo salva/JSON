@@ -1,6 +1,6 @@
 use Test::More;
 use strict;
-BEGIN { plan tests => 24 };
+BEGIN { plan tests => 27 };
 use JSON;
 
 #########################
@@ -81,4 +81,21 @@ is($obj->{foo}->[4], -0.123, "complex structure");
 is(qq|$obj->{foo}->[5]| , 'true', "complex structure");
 is($obj->{bar},  0.1,      "complex structure");
 is($obj->{hoge}, 250,      "complex structure");
+
+
+
+
+my $json = new JSON (autoconv => 1);
+
+$obj = {"id" => '0xfa'};
+$js = $json->objToJson($obj);
+is($js,'{"id":0xfa}');
+
+$json->autoconv(0);
+$js = $json->objToJson($obj);
+is($js,'{"id":"0xfa"}');
+
+$obj = {"id" => JSON::Number('0xfa')};
+$js = $json->objToJson($obj);
+is($js,'{"id":0xfa}');
 

@@ -1,5 +1,24 @@
 Revision history for Perl extension JSON.
 
+1.01 Mon Nov 21 13:22:23 2005
+	- modified t/04-json_opt.t (rt.cpan.org: Bug #15128)
+	  (thanks to some testers and Peter (Stig) Edwards)
+	- added the 'key sort' function to JSON, JSON::Converter.
+	  (thanks to Adam Sussman for the patch)
+	  (Brad Baxter also sent the patch)
+	- added t/10-orderd.t
+	- auto convert object has been expanded to hex numbers
+	  (thanks to Adam Sussman for the patch)
+	- modified small bug in JSON.
+	  (thanks to Brad Baxter)
+	- added 'convert blessed object' function to JSON, JSON::Converter.
+	  (thanks to Jacob and Jay Buffington for some suggestions)
+	- added t/11-convblessed.t
+	- modified JSONRPC::Transport::HTTP (rt.cpan.org: Bug #15915)
+	  (thanks to IVAN)
+	- modified some bugs in _getParamsForParser & _getParamsForConverter
+	- indent tab => indent space (in modified files)
+
 1.00 Fri Sep 30 06:45:13 2005
 	! JSONRPC and JSONRPC::Transport::HTTP was changed largely.
 	  If you have used this module, please pay attention to it before using.

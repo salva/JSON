@@ -2,7 +2,7 @@
 use strict;
 use Test::More;
 
-BEGIN { plan tests => 11 };
+BEGIN { plan tests => 13 };
 
 use JSONRPC::Transport::HTTP;
 use JSON;
@@ -20,7 +20,9 @@ my $json = {
 
 $q->param(json => objToJson($json));
 
-is($q->param('json'), '{"params":[true,false,null],"id":"httpReq","method":"echo"}');
+like($q->param('json'), qr{"params":\[true,false,null\]}, "check1");
+like($q->param('json'), qr{"id":"httpReq"}, "check2");
+like($q->param('json'), qr{"method":"echo"}, "check3");
 
 printout($rpc,\$io, query => $q, paramName => 'json');
 

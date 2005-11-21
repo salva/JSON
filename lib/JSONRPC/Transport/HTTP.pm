@@ -1,13 +1,14 @@
 package JSONRPC::Transport::HTTP;
 
 use strict;
+use JSONRPC;
 use base qw(JSONRPC);
 use vars qw($VERSION);
 
 use HTTP::Request;
 use HTTP::Response;
 
-$VERSION = 1.00;
+$VERSION = 1.01;
 
 #
 #
@@ -20,13 +21,13 @@ use base qw(JSONRPC::Client);
 
 
 sub send { require LWP::UserAgent;
-	my ($self, $content) = @_;
-	my ($url, $proxy_url) = @{$self->{_proxy}};
+    my ($self, $content) = @_;
+    my ($url, $proxy_url) = @{$self->{_proxy}};
 
-	my $ua  = LWP::UserAgent->new;
+    my $ua  = LWP::UserAgent->new;
 
-	$ua->proxy(['http','https'], $proxy_url) if($proxy_url);
-	$ua->post($url, Content_Type => 'text/plain', Content => $content);
+    $ua->proxy(['http','https'], $proxy_url) if($proxy_url);
+    $ua->post($url, Content_Type => 'text/plain', Content => $content);
 }
 
 
@@ -41,86 +42,85 @@ use base qw(JSONRPC);
 use constant DEFAULT_CHARSET => 'UTF-8';
 
 sub new {
-	my $self = shift;
-	my %opt  = @_;
+    my $self = shift;
+    my %opt  = @_;
 
-	unless (ref $self) {
-		my $class = ref($self) || $self;
-		$self = $class->SUPER::new(%opt);
-	}
+    unless (ref $self) {
+        my $class = ref($self) || $self;
+        $self = $class->SUPER::new(%opt);
+    }
 
-	$self->charset( $opt{charset} || DEFAULT_CHARSET );
+    $self->charset( $opt{charset} || DEFAULT_CHARSET );
 
-	return $self;
+    return $self;
 }
 
 
 sub handle {
-	my $self = shift;
-	my $jp   = $self->jsonParser;
+    my $self = shift;
+    my $jp   = $self->jsonParser;
 
-	unless(ref $self){ $self = $self->new(@_) }
+    unless(ref $self){ $self = $self->new(@_) }
 
-	my $req;
+    my $req;
 
-	if( $req = $self->request ){
-		$self->{json_data}
-#		     = eval q| $jp->parse($req->content) | or return $self->invalid_request();
-		     = eval q| $jp->parse($req->content) |
-		        or return $self->send_response( $self->invalid_request() );
+    if( $req = $self->request ){
+        $self->{json_data}
+             = eval q| $jp->parse($req->content) |
+                or return $self->send_response( $self->invalid_request() );
 
-		if( defined $self->request_id($self->{json_data}->{id}) ){
-			my $res = $self->handle_method($req) or return $self->invalid_request();
-			return $self->send_response( $self->response($res) );
-		}
-		else{
-			$self->notification();
-			$self->send_response( $self->no_response() );
-		}
-	}
-	else{
-		$self->send_response( $self->invalid_request() );
-	}
+        if( defined $self->request_id($self->{json_data}->{id}) ){
+            my $res = $self->handle_method($req) or return $self->invalid_request();
+            return $self->send_response( $self->response($res) );
+        }
+        else{
+            $self->notification();
+            $self->send_response( $self->no_response() );
+        }
+    }
+    else{
+        $self->send_response( $self->invalid_request() );
+    }
 }
 
 
 sub charset {
-	$_[0]->{_charset} = $_[1] if(@_ > 1);
-	$_[0]->{_charset};
+    $_[0]->{_charset} = $_[1] if(@_ > 1);
+    $_[0]->{_charset};
 }
 
 
 sub response {
-	my $self    = shift;
-	my $res     = shift;
-	my $charset = $self->charset;
-	my $h    = HTTP::Headers->new;
+    my $self    = shift;
+    my $res     = shift;
+    my $charset = $self->charset;
+    my $h    = HTTP::Headers->new;
 
-	$h->header('Content-Type' => "text/plain; charset=$charset");
+    $h->header('Content-Type' => "text/plain; charset=$charset");
 
-	HTTP::Response->new(200 => undef, $h, $res);
+    HTTP::Response->new(200 => undef, $h, $res);
 }
 
 
 sub invalid_request {
-	my $self    = shift;
-	my $charset = $self->charset;
-	my $h       = HTTP::Headers->new;
+    my $self    = shift;
+    my $charset = $self->charset;
+    my $h       = HTTP::Headers->new;
 
-	$h->header('Content-Type' => "text/plain; charset=$charset");
+    $h->header('Content-Type' => "text/plain; charset=$charset");
 
-	HTTP::Response->new(500 => undef, $h);
+    HTTP::Response->new(500 => undef, $h);
 }
 
 
 sub no_response {
-	my $self    = shift;
-	my $charset = $self->charset;
-	my $h       = HTTP::Headers->new;
+    my $self    = shift;
+    my $charset = $self->charset;
+    my $h       = HTTP::Headers->new;
 
-	$h->header('Content-Type' => "text/plain; charset=$charset");
+    $h->header('Content-Type' => "text/plain; charset=$charset");
 
-	HTTP::Response->new(200 => undef, $h);
+    HTTP::Response->new(200 => undef, $h);
 }
 
 
@@ -144,58 +144,58 @@ sub new { shift->SUPER::new(@_); }
 
 
 sub handle {
-	my $self = shift->new();
-	my %opt  = @_;
+    my $self = shift->new();
+    my %opt  = @_;
 
-	for my $name (qw/charset paramName query/){
-		$self->$name( $opt{$name} ) if(exists $opt{$name});
-	}
+    for my $name (qw/charset paramName query/){
+        $self->$name( $opt{$name} ) if(exists $opt{$name});
+    }
 
-	$self->SUPER::handle();
+    $self->SUPER::handle();
 }
 
 
 sub request {
-	my $self = shift;
-	my $q    = $self->query || new CGI;
-	my $len  = $ENV{'CONTENT_LENGTH'} || 0;
+    my $self = shift;
+    my $q    = $self->query || new CGI;
+    my $len  = $ENV{'CONTENT_LENGTH'} || 0;
 
-	if(MAX_CONTENT_LENGTH < $len){ return; }
+    if(MAX_CONTENT_LENGTH < $len){ return; }
 
-	my $req = HTTP::Request->new($q->request_method, $q->url);
+    my $req = HTTP::Request->new($q->request_method, $q->url);
 
-	return if($req->method ne 'POST');
+    return if($req->method ne 'POST');
 
-	if(defined $self->paramName){
-		$req->content( $q->param($self->paramName) );
-	}
-	else{
-		my @name = $q->param;
-		$req->content(
-			((@name == 1) ? $q->param($name[0]) : $q->param('POSTDATA'))
-		);
-	}
+    if(defined $self->paramName){
+        $req->content( $q->param($self->paramName) );
+    }
+    else{
+        my @name = $q->param;
+        $req->content(
+            ((@name == 1) ? $q->param($name[0]) : $q->param('POSTDATA'))
+        );
+    }
 
-	return $self->{_request} = $req;
+    return $self->{_request} = $req;
 }
 
 
 sub send_response {
-	my ($self, $res) = @_;
-	print "Status: " . $res->code . "\015\012" . $res->headers_as_string("\015\012")
+    my ($self, $res) = @_;
+    print "Status: " . $res->code . "\015\012" . $res->headers_as_string("\015\012")
            . "\015\012" . $res->content;
 }
 
 
 sub query {
-	$_[0]->{_query} = $_[1] if(@_ > 1);
-	$_[0]->{_query};
+    $_[0]->{_query} = $_[1] if(@_ > 1);
+    $_[0]->{_query};
 }
 
 
 sub paramName {
-	$_[0]->{_paramName} = $_[1] if(@_ > 1);
-	$_[0]->{_paramName};
+    $_[0]->{_paramName} = $_[1] if(@_ > 1);
+    $_[0]->{_paramName};
 }
 
 #
@@ -207,63 +207,63 @@ package JSONRPC::Transport::HTTP::Daemon;
 use base qw(JSONRPC::Transport::HTTP::Server);
 
 sub new {
-	my $self = shift;
+    my $self = shift;
 
-	unless (ref $self) {
-		my $class = ref($self) || $self;
-		$self = $class->SUPER::new(@_);
-	}
+    unless (ref $self) {
+        my $class = ref($self) || $self;
+        $self = $class->SUPER::new(@_);
+    }
 
-	my $pkg;
-	if(  grep { $_ =~ /^SSL_/ } @_ ){
-		$self->{_daemon_pkg} = $pkg = 'HTTP::Daemon::SSL';
-	}
-	else{
-		$self->{_daemon_pkg} = $pkg = 'HTTP::Daemon';
-	}
-	eval qq| require $pkg; |;
-	if($@){ die $@ }
+    my $pkg;
+    if(  grep { $_ =~ /^SSL_/ } @_ ){
+        $self->{_daemon_pkg} = $pkg = 'HTTP::Daemon::SSL';
+    }
+    else{
+        $self->{_daemon_pkg} = $pkg = 'HTTP::Daemon';
+    }
+    eval qq| require $pkg; |;
+    if($@){ die $@ }
 
-	$self->{_daemon} ||= $pkg->new(@_) or die;
+    $self->{_daemon} ||= $pkg->new(@_) or die;
 
-	return $self;
+    return $self;
 }
 
 
 sub handle {
-	my $self = shift;
-	my %opt  = @_;
-	my $d    = $self->{_daemon} ||= $self->{_daemon_pkg}->new(@_) or die;
+    my $self = shift;
+    my %opt  = @_;
+    my $d    = $self->{_daemon} ||= $self->{_daemon_pkg}->new(@_) or die;
 
-	$self->charset = $opt{charset} if($opt{charset});
+    $self->charset($opt{charset}) if($opt{charset});
 
-	while (my $c = $d->accept) {
-		$self->{con} = $c;
-		while (my $r = $c->get_request) {
-			if ($r->method eq 'POST') {
-				$self->request($r);
-				$self->SUPER::handle();
-			}
-			else {
-				$self->invalid_request();
-			}
-			last;
-		}
-		$c->close;
-	}
+    while (my $c = $d->accept) {
+        $self->{con} = $c;
+        while (my $r = $c->get_request) {
+            if ($r->method eq 'POST') {
+                $self->request($r);
+                $self->SUPER::handle();
+            }
+            else {
+                $self->invalid_request();
+            }
+            last;
+        }
+        $c->close;
+    }
 }
 
 
 
 sub request {
-	$_[0]->{_request} = $_[1] if(@_ > 1);
-	$_[0]->{_request};
+    $_[0]->{_request} = $_[1] if(@_ > 1);
+    $_[0]->{_request};
 }
 
 
 sub send_response {
-	my ($self, $res) = @_;
-	$self->{con}->send_response($res);
+    my ($self, $res) = @_;
+    $self->{con}->send_response($res);
 }
 
 
@@ -278,64 +278,64 @@ use base qw(JSONRPC::Transport::HTTP::Server);
 use constant MAX_CONTENT_LENGTH => 1024 * 1024 * 5; # 5M
 
 sub new {
-	my $self = shift;
+    my $self = shift;
 
-	require Apache;
-	require Apache::Constants;
+    require Apache;
+    require Apache::Constants;
 
-	unless (ref $self) {
-		my $class = ref($self) || $self;
-		$self = $class->SUPER::new(@_);
-	}
+    unless (ref $self) {
+        my $class = ref($self) || $self;
+        $self = $class->SUPER::new(@_);
+    }
 
-	return $self;
+    return $self;
 }
 
 
 sub request {
-	my $self = shift;
-	my $r    = shift || Apache->request;
-	my $len  = $r->header_in('Content-length');
+    my $self = shift;
+    my $r    = shift || Apache->request;
+    my $len  = $r->header_in('Content-length');
 
-	$self->{apr} = $r;
+    $self->{apr} = $r;
 
-	return if($r->method ne 'POST');
-	return if(MAX_CONTENT_LENGTH < $len);
+    return if($r->method ne 'POST');
+    return if(MAX_CONTENT_LENGTH < $len);
 
-	my $req = HTTP::Request->new($r->method, $r->uri);
-	my ($buf, $content);
+    my $req = HTTP::Request->new($r->method, $r->uri);
+    my ($buf, $content);
 
-	while( $r->read($buf,$len) ){
-		$content .= $buf;
-	}
+    while( $r->read($buf,$len) ){
+        $content .= $buf;
+    }
 
-	$req->content($content);
+    $req->content($content);
 
-	return $self->{_request} = $req;
+    return $self->{_request} = $req;
 }
 
 
 
 sub send_response {
-	my ($self, $res) = @_;
-	my $r = $self->{apr};
+    my ($self, $res) = @_;
+    my $r = $self->{apr};
 
-	$r->send_http_header("text/plain");
-	$r->print($res->content);
+    $r->send_http_header("text/plain");
+    $r->print($res->content);
 
-	return ($res->code == 200)
-	        ? &Apache::Constants::OK : &Apache::Constants::SERVER_ERROR;
+    return ($res->code == 200)
+            ? &Apache::Constants::OK : &Apache::Constants::SERVER_ERROR;
 }
 
 
 sub configure {
-	my $self   = shift;
-	my $config = shift->dir_config;
-	for my $method (keys %$config) {
-		my @values = split(/\s*,\s*/, $config->{$method});
-		$self->$method(@values) if($self->can($method));
-	}
-	$self;
+    my $self   = shift;
+    my $config = shift->dir_config;
+    for my $method (keys %$config) {
+        my @values = split(/\s*,\s*/, $config->{$method});
+        $self->$method(@values) if($self->can($method));
+    }
+    $self;
 }
 
 
