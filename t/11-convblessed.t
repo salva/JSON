@@ -175,11 +175,12 @@ use overload (
 
 sub new  { bless {}, shift; }
 
+
+package MyTest2;
+
 use overload (
 	'""' => sub { 'test' },
 );
-
-package MyTest2;
 
 sub new  { bless [], shift; }
 

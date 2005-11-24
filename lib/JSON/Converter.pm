@@ -3,7 +3,7 @@ package JSON::Converter;
 
 use Carp;
 
-$JSON::Converter::VERSION = 1.04;
+$JSON::Converter::VERSION = '1.05';
 
 ##############################################################################
 
@@ -31,7 +31,10 @@ sub objToJson {
     local @JSON::Converter::obj_addr; # check circular references 
     # for speed
     local $JSON::Converter::pretty  = $self->{pretty};
-    local $JSON::Converter::keysort = $self->{keysort};
+    local $JSON::Converter::keysort =  !$self->{keysort}                ? undef
+                                      : ref($self->{keysort}) eq 'CODE' ? $self->{keysort}
+                                      : $self->{keysort} =~ /\D+/       ? $self->{keysort}
+                                      : sub { $a cmp $b };
 
     return $self->_toJson($obj);
 }
@@ -86,20 +89,18 @@ sub _hashToJson {
 
     pop @JSON::Converter::obj_addr;
 
-    my $sort_sub = $JSON::Converter::keysort;
-
     if($JSON::Converter::pretty){
         $self->_downIndent();
         my $del = $self->{_delstr};
         return "{$pre"
          . join(",$pre", map { _stringfy($_) . $del .$res{$_} }
-                (defined $sort_sub ? ( sort $sort_sub (keys %res)) : (keys %res) )
+                (defined $JSON::Converter::keysort ? ( sort $JSON::Converter::keysort (keys %res)) : (keys %res) )
                 ). "$post}";
     }
     else{
         return '{'. join(',',map { _stringfy($_) .':' .$res{$_} } 
-                    (defined $sort_sub ?
-                        ( sort $sort_sub (keys %res)) : (keys %res) )
+                    (defined $JSON::Converter::keysort ?
+                        ( sort $JSON::Converter::keysort (keys %res)) : (keys %res) )
                 ) .'}';
     }
 
@@ -242,6 +243,7 @@ sub _downIndent { $_[0]->{indent_count}--; }
 
 
 sub _isBlessedObj {
+    return '' if(!ref($_[0]));
     ref($_[0]) eq 'HASH'  ? 'HASH' :
     ref($_[0]) eq 'ARRAY' ? 'ARRAY' :
     UNIVERSAL::isa($_[0],"JSON::NotString") ?  '' :
@@ -325,10 +327,6 @@ __END__
 =head1 METHODs
 
 =over
-
-=item parse
-
-alias of C<objToJson>.
 
 =item objToJson
 

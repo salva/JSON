@@ -11,7 +11,7 @@ use vars qw($AUTOCONVERT $VERSION $UnMapping $BareKey $QuotApos
             $ExecCoderef $SkipInvalid $Pretty $Indent $Delimiter
             $KeySort $ConvBlessed);
 
-$VERSION     = '1.01';
+$VERSION     = '1.02';
 
 $AUTOCONVERT = 1;
 $SkipInvalid = 0;
@@ -22,7 +22,7 @@ $Delimiter   = 2; # (for pretty-print)  0 => ':', 1 => ': ', 2 => ' : '
 $UnMapping   = 0; # 
 $BareKey     = 0; # 
 $QuotApos    = 0; # 
-$KeySort     = undef;  # Code-ref to provide sort ordering in converter
+$KeySort     = undef; # Code-ref to provide sort ordering in converter
 
 my $parser; # JSON => Perl
 my $conv;   # Perl => JSON
@@ -516,6 +516,10 @@ order.  To control the ordering of hash keys, you can provide a standard
 You can provide either a fully qualified function name or a CODEREF to
 $JSON::KeySort or $obj->keysort.
 
+If you give any integers (excluded 0), the sort function will work as:
+
+ sub { $a cmp $b }
+
 Note that since the sort function is external to the JSON module the
 magical $a and $b arguments will not be in the same package.  In order
 to gain access to the sorting arguments, you must either:
@@ -582,7 +586,8 @@ escaped character handling in JSON::Parser.
 
 Adam Sussman E<lt>adam.sussman[at]ticketmaster.comE<gt>
 suggested the octal and hexadecimal formats as number.
-Sussman also sent the 'key sort' and 'hex number autoconv' patch.
+Sussman also sent the 'key sort' and 'hex number autoconv' patch
+and 'HASH KEY SORT ORDER' section.
 
 Tatsuhiko Miyagawa E<lt>miyagawa[at]bulknews.netE<gt>
 taught a terrible typo and gave some suggestions.

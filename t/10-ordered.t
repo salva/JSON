@@ -1,6 +1,6 @@
 use Test::More;
 use strict;
-BEGIN { plan tests => 6 };
+BEGIN { plan tests => 8 };
 use JSON;
 #########################
 
@@ -59,6 +59,16 @@ is($js, q|{
 }|);
 
 
+
+{
+local $JSON::KeySort = 1;
+$js = objToJson($obj);
+is($js, q|{"a":1,"b":2,"c":3,"d":4,"e":5,"f":6,"g":7,"h":8,"i":9}|);
+
+}
+
+$js = objToJson($obj, {keysort => 1});
+is($js, q|{"a":1,"b":2,"c":3,"d":4,"e":5,"f":6,"g":7,"h":8,"i":9}|);
 
 
 package My::Package;
