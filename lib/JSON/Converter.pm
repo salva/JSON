@@ -3,7 +3,23 @@ package JSON::Converter;
 
 use Carp;
 
-$JSON::Converter::VERSION = '1.05';
+$JSON::Converter::VERSION = '1.06';
+
+BEGIN {
+    eval 'require Scalar::Util';
+    unless($@){
+        *JSON::Converter::blessed = \&Scalar::Util::blessed;
+    }
+    else{ # This code is from Sclar::Util.
+        # warn $@;
+        eval 'sub UNIVERSAL::a_sub_not_likely_to_be_here { ref($_[0]) }';
+        *JSON::Converter::blessed = sub {
+            local($@, $SIG{__DIE__}, $SIG{__WARN__});
+            ref($_[0]) ? eval { $_[0]->a_sub_not_likely_to_be_here } : undef;
+        };
+    }
+}
+
 
 ##############################################################################
 
@@ -24,17 +40,20 @@ sub objToJson {
     $self->_initConvert($opt);
 
     if($self->{convblessed}){
-        $obj = _blessedToNormal($obj);
+        $obj = _blessedToNormalObject($obj);
     }
 
     #(not hash for speed)
     local @JSON::Converter::obj_addr; # check circular references 
     # for speed
     local $JSON::Converter::pretty  = $self->{pretty};
-    local $JSON::Converter::keysort =  !$self->{keysort}                ? undef
-                                      : ref($self->{keysort}) eq 'CODE' ? $self->{keysort}
-                                      : $self->{keysort} =~ /\D+/       ? $self->{keysort}
-                                      : sub { $a cmp $b };
+    local $JSON::Converter::keysort = !$self->{keysort}                ? undef
+                                     : ref($self->{keysort}) eq 'CODE' ? $self->{keysort}
+                                     : $self->{keysort} =~ /\D+/       ? $self->{keysort}
+                                     : sub { $a cmp $b };
+    local $JSON::Converter::autoconv    = $self->{autoconv};
+    local $JSON::Converter::execcoderef = $self->{execcoderef};
+    local $JSON::Converter::selfconvert = $self->{selfconvert};
 
     return $self->_toJson($obj);
 }
@@ -54,6 +73,10 @@ sub _toJson {
     elsif(ref($obj) eq 'ARRAY'){
         return $self->_arrayToJson($obj);
     }
+    elsif( $JSON::Converter::selfconvert
+             and blessed($obj) and $obj->can('toJson') ){
+        return $self->_selfToJson($obj);
+    }
     else{
         return;
     }
@@ -61,8 +84,7 @@ sub _toJson {
 
 
 sub _hashToJson {
-    my $self = shift;
-    my $obj  = shift;
+    my ($self, $obj) = @_;
     my ($k,$v);
     my %res;
 
@@ -76,15 +98,7 @@ sub _hashToJson {
 
     for my $k (keys %$obj){
         my $v = $obj->{$k};
-        if(ref($v) eq "HASH"){
-            $res{$k} = $self->_hashToJson($v);
-        }
-        elsif(ref($v) eq "ARRAY"){
-            $res{$k} = $self->_arrayToJson($v);
-        }
-        else{
-            $res{$k} = $self->_valueToJson($v);
-        }
+        $res{$k} = $self->_toJson($v) || $self->_valueToJson($v);
     }
 
     pop @JSON::Converter::obj_addr;
@@ -108,8 +122,7 @@ sub _hashToJson {
 
 
 sub _arrayToJson {
-    my $self = shift;
-    my $obj  = shift;
+	my ($self, $obj) = @_;
     my @res;
 
     my ($pre,$post) = $self->_upIndent() if($JSON::Converter::pretty);
@@ -121,15 +134,7 @@ sub _arrayToJson {
     push @JSON::Converter::obj_addr,$obj;
 
     for my $v (@$obj){
-        if(ref($v) eq "HASH"){
-            push @res,$self->_hashToJson($v);
-        }
-        elsif(ref($v) eq "ARRAY"){
-            push @res,$self->_arrayToJson($v);
-        }
-        else{
-            push @res,$self->_valueToJson($v);
-        }
+        push @res, $self->_toJson($v) || $self->_valueToJson($v);
     }
 
     pop @JSON::Converter::obj_addr;
@@ -144,34 +149,43 @@ sub _arrayToJson {
 }
 
 
+sub _selfToJson {
+    my ($self, $obj) = @_;
+    if(grep { $_ == $obj } @JSON::Converter::obj_addr){
+        die "circle ref!";
+    }
+    push @JSON::Converter::obj_addr, $obj;
+    return $obj->toJson($self);
+}
+
+
 sub _valueToJson {
-    my $self  = shift;
-    my $value = shift;
+	my ($self, $value) = @_;
 
     return 'null' if(!defined $value);
 
-    if($self->{autoconv} and !ref($value)){
-        return $value  if($value =~ /^-?(?:0|[1-9][\d]*)(?:\.[\d]*)?$/);
-        return $value  if($value =~ /^0[xX](?:[0-9a-zA-Z])+$/);
-        return 'true'  if($value =~ /^true$/i);
-        return 'false' if($value =~ /^false$/i);
+    if(!ref($value)){
+        if($JSON::Converter::autoconv){
+            return $value  if($value =~ /^-?(?:0|[1-9][\d]*)(?:\.[\d]*)?$/);
+            return $value  if($value =~ /^0[xX](?:[0-9a-zA-Z])+$/);
+            return 'true'  if($value =~ /^[Tt][Rr][Uu][Ee]$/);
+            return 'false' if($value =~ /^[Ff][Aa][Ll][Ss][Ee]$/);
+        }
+        return _stringfy($value);
     }
-
-    if(! ref($value) ){
-        return _stringfy($value)
-    }
-    elsif($self->{execcoderef} and ref($value) eq 'CODE'){
+    elsif($JSON::Converter::execcoderef and ref($value) eq 'CODE'){
         my $ret = $value->();
         return 'null' if(!defined $ret);
-        return $self->_toJson($ret) if(ref($ret));
-        return _stringfy($ret);
+        return $self->_toJson($ret) || _stringfy($ret);
     }
-    elsif( ! UNIVERSAL::isa($value, 'JSON::NotString') ){
+    elsif( blessed($value) and  $value->isa('JSON::NotString') ){
+        return defined $value->{value} ? $value->{value} : 'null';
+    }
+    else{
         die "Invalid value" unless($self->{skipinvalid});
         return 'null';
     }
 
-    return defined $value->{value} ? $value->{value} : 'null';
 }
 
 
@@ -187,7 +201,7 @@ my %esc = (
 
 
 sub _stringfy {
-    my $arg = shift;
+    my ($arg) = @_;
     $arg =~ s/([\\"\n\r\t\f\b])/$esc{$1}/eg;
     $arg =~ s/([\x00-\x07\x0b\x0e-\x1f])/'\\u00' . unpack('H2',$1)/eg;
     return '"' . $arg . '"';
@@ -209,8 +223,10 @@ sub _initConvert {
     $self->{delimiter}   = $JSON::Delimiter   if(!defined $self->{delimiter});
     $self->{keysort}     = $JSON::KeySort     if(!defined $self->{keysort});
     $self->{convblessed} = $JSON::ConvBlessed if(!defined $self->{convblessed});
+    $self->{selfconvert} = $JSON::SelfConvert if(!defined $self->{selfconvert});
 
-    for my $name (qw/autoconv execcoderef skipinvalid pretty indent delimiter keysort convblessed/){
+    for my $name (qw/autoconv execcoderef skipinvalid pretty 
+                     indent delimiter keysort convblessed selfconvert/){
         $self->{$name} = $opt{$name} if(defined $opt{$name});
     }
 
@@ -242,23 +258,32 @@ sub _upIndent {
 sub _downIndent { $_[0]->{indent_count}--; }
 
 
-sub _isBlessedObj {
+#
+# converting the blessed object to the normal object
+#
+
+sub _blessedToNormalObject { require overload;
+    my ($obj) = @_;
+
+    local @JSON::Converter::_blessedToNormal::obj_addr;
+
+    return _blessedToNormal($obj);
+}
+
+
+sub _getObjType {
     return '' if(!ref($_[0]));
     ref($_[0]) eq 'HASH'  ? 'HASH' :
     ref($_[0]) eq 'ARRAY' ? 'ARRAY' :
-    UNIVERSAL::isa($_[0],"JSON::NotString") ?  '' :
+    $_[0]->isa('JSON::NotString') ?  '' :
     (overload::StrVal($_[0]) =~ /=(\w+)/)[0];
 }
 
 
-sub _blessedToNormal { require overload;
-    my ($obj) = @_;
-    my $type  = _isBlessedObj($obj);
-
-    local @JSON::Converter::_blessedToNormal::obj_addr;
-
-    return $type eq 'HASH'  ? _blessedToNormalHash($obj)  : 
-           $type eq 'ARRAY' ? _blessedToNormalArray($obj) : $obj;
+sub _blessedToNormal {
+    my $type  = _getObjType($_[0]);
+    return $type eq 'HASH'  ? _blessedToNormalHash($_[0])  : 
+           $type eq 'ARRAY' ? _blessedToNormalArray($_[0]) : $_[0];
 }
 
 
@@ -272,18 +297,7 @@ sub _blessedToNormalHash {
     push @JSON::Converter::_blessedToNormal::obj_addr, $obj;
 
     for my $k (keys %$obj){
-        my $v    = $obj->{$k};
-        my $type = _isBlessedObj($v);
-
-        if($type eq "HASH"){
-            $res{$k} = _blessedToNormalHash($v);
-        }
-        elsif($type eq "ARRAY"){
-            $res{$k} = _blessedToNormalArray($v);
-        }
-        else{
-            $res{$k} = $v;
-        }
+        $res{$k} = _blessedToNormal($obj->{$k});
     }
 
     pop @JSON::Converter::_blessedToNormal::obj_addr;
@@ -302,16 +316,7 @@ sub _blessedToNormalArray {
     push @JSON::Converter::_blessedToNormal::obj_addr, $obj;
 
     for my $v (@$obj){
-        my $type = _isBlessedObj($v);
-        if($type eq "HASH"){
-            push @res, _blessedToNormalHash($v);
-        }
-        elsif($type eq "ARRAY"){
-            push @res, _blessedToNormalArray($v);
-        }
-        else{
-            push @res, $v;
-        }
+        push @res, _blessedToNormal($v);
     }
 
     pop @JSON::Converter::_blessedToNormal::obj_addr;

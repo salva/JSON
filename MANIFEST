@@ -19,7 +19,7 @@ t/08-pretty.t
 t/09-quote.t
 t/10-ordered.t
 t/11-convblessed.t
-
+t/12-selfconv.t
 t/rpc01-use.t
 t/rpc02-query.t
 t/rpc03-query2.t

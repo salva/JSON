@@ -1,5 +1,12 @@
 Revision history for Perl extension JSON.
 
+1.03Å@Thu Dec 29 10:11:50 2005
+	- modified code typo (Thanks to Yann Kerherve)
+	- added the 'selfconvert' function to JSON::Converter and t/selfconvert.t.
+	  (thanks to Yann Kerherve'patch and suggestion)
+        - rewrite a few JSON::Converter codes more prrety (the speed decreases a little)
+	- modified JSON pod typos (Thanks to Annocpan users)
+
 1.02  Thu Nov 24 10:44:42 2005
 	- modified t/11-convblessed.t
 	- sortkey function was enhanced.

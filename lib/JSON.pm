@@ -9,9 +9,9 @@ use JSON::Converter;
 
 use vars qw($AUTOCONVERT $VERSION $UnMapping $BareKey $QuotApos
             $ExecCoderef $SkipInvalid $Pretty $Indent $Delimiter
-            $KeySort $ConvBlessed);
+            $KeySort $ConvBlessed $SelfConvert);
 
-$VERSION     = '1.02';
+$VERSION     = '1.03';
 
 $AUTOCONVERT = 1;
 $SkipInvalid = 0;
@@ -47,6 +47,7 @@ sub new {
         delimiter   => $Delimiter  ,
         keysort     => $KeySort    ,
         convblessed => $ConvBlessed,
+        selfconvert => $SelfConvert,
         # below fields are for JSON::Parser
         unmapping   => $UnMapping,
         quotapos    => $QuotApos ,
@@ -133,19 +134,21 @@ sub _getParamsForConverter {
     my $params;
 
     if(ref($self)){ # instance
-        my @names = qw(pretty indent delimiter autoconv keysort convblessed);
-        my ($pretty, $indent, $delimiter, $autoconv, $keysort, $convblessed)
+        my @names = qw(pretty indent delimiter autoconv keysort convblessed selfconvert);
+        my ($pretty, $indent, $delimiter, $autoconv, $keysort, $convblessed, $selfconvert)
                                                            = @{$self}{ @names };
         $params = {
             pretty => $pretty, indent => $indent,
             delimiter => $delimiter, autoconv => $autoconv,
             keysort => $keysort, convblessed => $convblessed,
+            selfconvert => $selfconvert,
         };
     }
     else{ # class
         $params = {
             pretty => $Pretty, indent => $Indent, delimiter => $Delimiter,
-            keysort => $KeySort, convbless => $ConvBlessed,
+            keysort => $KeySort, convblessed => $ConvBlessed,
+            selfconvert => $SelfConvert,
         };
     }
 
@@ -175,6 +178,8 @@ sub unmapping { $_[0]->{unmapping} = $_[1] if(defined $_[1]); $_[0]->{unmapping}
 sub keysort { $_[0]->{keysort} = $_[1] if(defined $_[1]); $_[0]->{keysort} }
 
 sub convblessed { $_[0]->{convblessed} = $_[1] if(defined $_[1]); $_[0]->{convblessed} }
+
+sub selfconvert { $_[0]->{selfconvert} = $_[1] if(defined $_[1]); $_[0]->{selfconvert} }
 
 ##############################################################################
 # NON STRING DATA
@@ -237,7 +242,7 @@ JSON - parse and convert to JSON (JavaScript Object Notation).
  
  my $json = new JSON;
  
- $obj = {id => 'foo', method => 'echo', params => ['a','b']}
+ $obj = {id => 'foo', method => 'echo', params => ['a','b']};
  $js  = $json->objToJson($obj);
  $obj = $json->jsonToObj($js);
  
@@ -294,21 +299,25 @@ and uses returned value.
 
 =item pretty
 
-See L</PRETY PRINTING> for more info.
+See L</PRETTY PRINTING> for more info.
 
 =item indent
 
-See L</PRETY PRINTING> for more info.
+See L</PRETTY PRINTING> for more info.
 
 =item delimiter
 
-See L</PRETY PRINTING> for more info.
+See L</PRETTY PRINTING> for more info.
 
 =item keysort
 
 See L</HASH KEY SORT ORDER> for more info.
 
 =item convblessed
+
+See L</BLESSED OBJECT> for more info.
+
+=item selfconvert
 
 See L</BLESSED OBJECT> for more info.
 
@@ -327,7 +336,7 @@ and returns JSON formated string.
  # [1,2,{"foo":"bar"}]
 
 By default, returned string is one-line. However, you can get pretty-printed
-data with C<pretty> option. Please see below L</PRETY PRINTING>.
+data with C<pretty> option. Please see below L</PRETTY PRINTING>.
 
  my $js  = $json->objToJson($obj, {pretty => 1, indent => 2});
  # [
@@ -355,19 +364,19 @@ This is an accessor to C<autoconv>. See L</AUTOCONVERT> for more info.
 
 This is an accessor to C<pretty>. It takes true or false.
 When prrety is true, C<objToJson()> returns prrety-printed string.
-See L</PRETY PRINTING> for more info.
+See L</PRETTY PRINTING> for more info.
 
 =item indent()
 
 =item indent($integer)
 
 This is an accessor to C<indent>.
-See L</PRETY PRINTING> for more info.
+See L</PRETTY PRINTING> for more info.
 
 =item delimiter()
 
 This is an accessor to C<delimiter>.
-See L</PRETY PRINTING> for more info.
+See L</PRETTY PRINTING> for more info.
 
 =item unmapping()
 
@@ -389,6 +398,14 @@ See L</HASH KEY SORT ORDER> for more info.
 
 This is an accessor to C<convblessed>.
 See L</BLESSED OBJECT> for more info.
+
+=item selfconvert()
+
+=item selfconvert($bool)
+
+This is an accessor to C<selfconvert>.
+See L</BLESSED OBJECT> for more info.
+
 
 =back
 
@@ -430,7 +447,7 @@ Since 1.00, L</UnMapping option> is added. When that option is set,
 Perl's C<undef> is converted to 'null'.
 
 
-=head1 PRETY PRINTING
+=head1 PRETTY PRINTING
 
 If you'd like your JSON output to be pretty-printed, pass the C<pretty>
 parameter to objToJson(). You can affect the indentation (which defaults to 2)
@@ -478,9 +495,9 @@ C<JSON::Number()> returns C<undef> when an argument invalid format.
 
 =head1 UNMAPPING OPTION
 
-By default, $JSON::UNMAPPING is false and JSON::Parser converts
+By default, $JSON::UnMapping is false and JSON::Parser converts
 C<null>, C<true>, C<false> into C<JSON::NotString> objects.
-You can set true into $JSON::UNMAPPING to stop the mapping function.
+You can set true into $JSON::UnMapping to stop the mapping function.
 In that case, JSON::Parser will convert C<null>, C<true>, C<false>
 into C<undef>, 1, 0.
 
@@ -559,6 +576,11 @@ the module can convert most blessed object (hashref or arrayref).
 
 This option slows down the converting speed.
 
+If you use $JSON::SelfConvert or C<selfconvert> option,
+the module will test for a C<toJson()> method on the object,
+and will rely on this method to obtain the converted value of
+the object.
+
 =head1 EXPORT
 
 C<objToJson>, C<jsonToObj>.
@@ -594,7 +616,7 @@ taught a terrible typo and gave some suggestions.
 
 David Wheeler E<lt>david[at]kineticode.comE<gt>
 suggested me supporting pretty-printing and
-gave a part of L<PRETY PRINTING>.
+gave a part of L<PRETTY PRINTING>.
 
 Rusty Phillips E<lt>rphillips[at]edats.comE<gt>
 suggested me supporting the query object other than CGI.pm
@@ -615,6 +637,10 @@ Brad Baxter sent to 'key sort' patch and thought a bug in JSON.
 Jacob and Jay Buffington sent 'blessed object conversion' patch.
 
 Thanks to Peter Edwards, IVAN, and all testers for bug reports.
+
+Yann Kerherve sent 'selfconverter' patch(code, document and test).
+
+Annocpan users comment on JSON pod. See http://annocpan.org/pod/JSON
 
 And Thanks very much to JSON by JSON.org (Douglas Crockford) and
 JSON-RPC by http://json-rpc.org/
