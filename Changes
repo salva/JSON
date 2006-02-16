@@ -1,6 +1,13 @@
 Revision history for Perl extension JSON.
 
-1.03Å@Thu Dec 29 10:11:50 2005
+1.04  Thu Feb 16 17:29:57 2006
+	- can handle exponential digit.
+	- added 'parse_json' and 'to_json' as the alias to 'jsonToObj' and 'objToJson'
+	- added UTF8 option
+	- fixed a bug when calling _getParamsForParser in jsonToObj()
+	- added 'SingleQuote' option
+
+1.03  Thu Dec 29 10:11:50 2005
 	- modified code typo (Thanks to Yann Kerherve)
 	- added the 'selfconvert' function to JSON::Converter and t/selfconvert.t.
 	  (thanks to Yann Kerherve'patch and suggestion)

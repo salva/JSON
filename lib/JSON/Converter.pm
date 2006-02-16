@@ -3,7 +3,12 @@ package JSON::Converter;
 
 use Carp;
 
-$JSON::Converter::VERSION = '1.06';
+use vars qw($VERSION $USE_UTF8);
+use strict;
+use JSON ();
+
+
+$VERSION = '1.07';
 
 BEGIN {
     eval 'require Scalar::Util';
@@ -18,6 +23,9 @@ BEGIN {
             ref($_[0]) ? eval { $_[0]->a_sub_not_likely_to_be_here } : undef;
         };
     }
+
+    $USE_UTF8 = JSON->USE_UTF8;
+
 }
 
 
@@ -35,7 +43,7 @@ sub objToJson {
     my $opt  = shift;
 
     local(@{$self}{qw/autoconv execcoderef skipinvalid/});
-    local(@{$self}{qw/pretty indent delimiter keysort convblessed/});
+    local(@{$self}{qw/pretty indent delimiter keysort convblessed utf8 singlequote/});
 
     $self->_initConvert($opt);
 
@@ -54,6 +62,9 @@ sub objToJson {
     local $JSON::Converter::autoconv    = $self->{autoconv};
     local $JSON::Converter::execcoderef = $self->{execcoderef};
     local $JSON::Converter::selfconvert = $self->{selfconvert};
+    local $JSON::Converter::utf8        = $self->{utf8};
+
+    local *_stringfy = *_stringfy_single_quote if($self->{singlequote});
 
     return $self->_toJson($obj);
 }
@@ -166,7 +177,7 @@ sub _valueToJson {
 
     if(!ref($value)){
         if($JSON::Converter::autoconv){
-            return $value  if($value =~ /^-?(?:0|[1-9][\d]*)(?:\.[\d]*)?$/);
+            return $value  if($value =~ /^-?(?:\d+)(?:\.\d*)?(?:[eE][-+]?\d+)?$/);
             return $value  if($value =~ /^0[xX](?:[0-9a-zA-Z])+$/);
             return 'true'  if($value =~ /^[Tt][Rr][Uu][Ee]$/);
             return 'false' if($value =~ /^[Ff][Aa][Ll][Ss][Ee]$/);
@@ -197,6 +208,7 @@ my %esc = (
     "\b" => '\b',
     "\"" => '\"',
     "\\" => '\\\\',
+    "\'" => '\'',
 );
 
 
@@ -204,8 +216,22 @@ sub _stringfy {
     my ($arg) = @_;
     $arg =~ s/([\\"\n\r\t\f\b])/$esc{$1}/eg;
     $arg =~ s/([\x00-\x07\x0b\x0e-\x1f])/'\\u00' . unpack('H2',$1)/eg;
+
+    $JSON::Converter::utf8 and utf8::decode($arg);
+
     return '"' . $arg . '"';
 }
+
+
+sub _stringfy_single_quote {
+    my $arg = shift;
+    $arg =~ s/([\\\n'\r\t\f\b])/$esc{$1}/eg;
+    $arg =~ s/([\x00-\x07\x0b\x0e-\x1f])/'\\u00' . unpack('H2',$1)/eg;
+
+    $JSON::Converter::utf8 and utf8::decode($arg);
+
+    return "'" . $arg ."'";
+};
 
 
 ##############################################################################
@@ -224,10 +250,16 @@ sub _initConvert {
     $self->{keysort}     = $JSON::KeySort     if(!defined $self->{keysort});
     $self->{convblessed} = $JSON::ConvBlessed if(!defined $self->{convblessed});
     $self->{selfconvert} = $JSON::SelfConvert if(!defined $self->{selfconvert});
+    $self->{utf8}        = $JSON::UTF8        if(!defined $self->{utf8});
+    $self->{singlequote} = $JSON::SingleQuote if(!defined $self->{singlequote});
 
-    for my $name (qw/autoconv execcoderef skipinvalid pretty 
-                     indent delimiter keysort convblessed selfconvert/){
+    for my $name (qw/autoconv execcoderef skipinvalid pretty
+                     indent delimiter keysort convblessed selfconvert utf8 singlequote/){
         $self->{$name} = $opt{$name} if(defined $opt{$name});
+    }
+
+    if($self->{utf8} and !$USE_UTF8){
+        $self->{utf8} = 0; warn "JSON::Converter couldn't use utf8.";
     }
 
     $self->{indent_count} = 0;
