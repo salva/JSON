@@ -29,3 +29,4 @@ is($json->to_json($obj), q|{'foo':'bar'}|);
 
 $json->singlequote(0);
 is($json->to_json($obj), q|{"foo":"bar"}|);
+

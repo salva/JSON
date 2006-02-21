@@ -9,7 +9,7 @@ use vars qw($VERSION $USE_UTF8);
 use strict;
 use JSON ();
 
-$VERSION  = '1.01';
+$VERSION  = '1.02';
 
 $USE_UTF8 = JSON->USE_UTF8();
 
@@ -99,7 +99,7 @@ sub new {
                             $u .= $ch;
                         }
                          my $f = chr(hex($u));
-                         utf8::encode( $f );
+                         utf8::encode( $f ) if($USE_UTF8);
                          $s .= $f;
                     }
                     else{

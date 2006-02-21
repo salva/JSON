@@ -9,7 +9,7 @@ use vars qw($AUTOCONVERT $VERSION $UnMapping $BareKey $QuotApos
             $ExecCoderef $SkipInvalid $Pretty $Indent $Delimiter
             $KeySort $ConvBlessed $SelfConvert $UTF8 $SingleQuote);
 
-$VERSION = '1.04';
+$VERSION = '1.05';
 
 $AUTOCONVERT = 1;
 $SkipInvalid = 0;
@@ -210,8 +210,8 @@ sub Number {
 
     return undef if(!defined $num);
 
-    if($num =~ /^-?(?:\d+)(?:\.\d*)?(?:[eE][-+]?\d+)?$/
-               or $num =~ /^0[xX](?:[0-9a-zA-Z])+$/)
+    if(    $num =~ /^-?(?:\d+)(?:\.\d*)?(?:[eE][-+]?\d+)?$/
+        or $num =~ /^0[xX](?:[0-9a-zA-Z])+$/                 )
     {
         return bless {value => $num}, 'JSON::NotString';
     }
@@ -339,6 +339,10 @@ See L</BLESSED OBJECT> for more info.
 
 See L</BLESSED OBJECT> for more info.
 
+=item singlequote
+
+See L</CONVERT WITH SINGLE QUOTES> for more info.
+
 =back 
 
 
@@ -423,6 +427,13 @@ See L</BLESSED OBJECT> for more info.
 
 This is an accessor to C<selfconvert>.
 See L</BLESSED OBJECT> for more info.
+
+=item singlequote()
+
+=item singlequote($bool)
+
+This is an accessor to C<singlequote>.
+See L</CONVERT WITH SINGLE QUOTES> for more info.
 
 
 =back

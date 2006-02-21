@@ -1,5 +1,10 @@
 Revision history for Perl extension JSON.
 
+1.05  Tue Feb 21 11:37:00 2006
+	- fixed the problem of calling utf8::encode in less than Perl 5.8
+           (rt#17755)
+	- added doc related to SingleQuote option
+
 1.04  Thu Feb 16 17:29:57 2006
 	- can handle exponential digit.
 	- added 'parse_json' and 'to_json' as the alias to 'jsonToObj' and 'objToJson'
