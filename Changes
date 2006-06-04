@@ -1,5 +1,14 @@
 Revision history for Perl extension JSON.
 
+1.07  Mon Jun  5 00:17:11 2006
+	- fixed treating octal numbers of JSON::Converter (was broken since 1.04)
+	   reported by Jose Alves de Castro and Rocco Caputo.
+	- added utf8::encode emulator (less than Perl5.8 ) but no test!
+	   suggested by philip.tellis[at]gmail.com
+
+1.06  no released
+	- modified JSON::Converter's %esc value
+
 1.05  Tue Feb 21 11:37:00 2006
 	- fixed the problem of calling utf8::encode in less than Perl 5.8
            (rt#17755)

@@ -8,7 +8,7 @@ use strict;
 use JSON ();
 
 
-$VERSION = '1.07';
+$VERSION = '1.09';
 
 BEGIN {
     eval 'require Scalar::Util';
@@ -177,7 +177,10 @@ sub _valueToJson {
 
     if(!ref($value)){
         if($JSON::Converter::autoconv){
-            return $value  if($value =~ /^-?(?:\d+)(?:\.\d*)?(?:[eE][-+]?\d+)?$/);
+
+            return $value  if($value =~ /^-?(?:0|[1-9][\d]*)(?:\.\d*)?(?:[eE][-+]?\d+)?$/);
+#            return $value  if($value =~ /^-?(?:0|[1-9][\d]*)(?:\.[\d]*)?$/);
+#            return $value  if($value =~ /^-?(?:\d+)(?:\.\d*)?(?:[eE][-+]?\d+)?$/);
             return $value  if($value =~ /^0[xX](?:[0-9a-zA-Z])+$/);
             return 'true'  if($value =~ /^[Tt][Rr][Uu][Ee]$/);
             return 'false' if($value =~ /^[Ff][Aa][Ll][Ss][Ee]$/);
@@ -208,7 +211,7 @@ my %esc = (
     "\b" => '\b',
     "\"" => '\"',
     "\\" => '\\\\',
-    "\'" => '\'',
+    "\'" => '\\\'',
 );
 
 

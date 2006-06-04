@@ -5,11 +5,33 @@ package JSON::Parser;
 #  http://www.crockford.com/JSON/json.js
 #
 
-use vars qw($VERSION $USE_UTF8);
+use vars qw($VERSION $USE_UTF8 $USE_UnicodeString);
 use strict;
 use JSON ();
 
-$VERSION  = '1.02';
+BEGIN { # suggested by philip.tellis[at]gmail.com
+    if ($] < 5.008) {
+        eval q{ require Unicode::String };
+        unless ($@) {
+            $USE_UnicodeString = 1;
+            eval q|
+                sub utf8::encode (\$) {
+                    my $f_ref = $_[0];
+                    if (length($$f_ref) == 1 && ord($$f_ref) <= 0xff) {
+                        my $us = new Unicode::String;
+                        $us->latin1($$f_ref);
+                        $$f_ref = $us->utf8;
+                    }
+                }
+            |;
+        }
+    }
+}
+
+
+$VERSION  = '1.04';
+
+# TODO: I made 1.03, but that will be used after JSON 1.90
 
 $USE_UTF8 = JSON->USE_UTF8();
 
@@ -99,7 +121,7 @@ sub new {
                             $u .= $ch;
                         }
                          my $f = chr(hex($u));
-                         utf8::encode( $f ) if($USE_UTF8);
+                         utf8::encode( $f ) if($USE_UTF8 || $USE_UnicodeString);
                          $s .= $f;
                     }
                     else{

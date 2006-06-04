@@ -1,6 +1,6 @@
 use Test::More;
 use strict;
-BEGIN { plan tests => 27 };
+BEGIN { plan tests => 28 };
 use JSON;
 
 #########################
@@ -98,4 +98,20 @@ is($js,'{"id":"0xfa"}');
 $obj = {"id" => JSON::Number('0xfa')};
 $js = $json->objToJson($obj);
 is($js,'{"id":0xfa}');
+
+
+
+# In JSON 1.04, JSON::Converter was broken.
+# This code was provided by rcaputo[at]pobox.com
+
+my $jc = JSON::Converter->new();
+my $jp = JSON::Parser->new();
+
+my $ides = "03152006";
+my $perl = $jp->parse($jc->hashToJson({ beware => $ides }));
+
+
+ok($perl->{beware} eq $ides,
+  qq(Input string "$ides" should match output: "$perl->{beware}")
+);
 
