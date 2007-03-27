@@ -1,5 +1,17 @@
 Revision history for Perl extension JSON.
 
+	* TODO * making interface corresponding to JSON::XS
+        *         => an experimental module JSON::PP(already completed) -> JSON 2.0
+	* TODO * correct unicode handling
+	* TODO * updating JSONRPC
+	* TODO * abandoning JSON::PC
+
+        * I came as much as possible so that speed might not be reduced somehow
+        * until now. However, I have already given up about that.
+
+1.09  Wed Mar 28 06:40:56 2007
+	- fixed 14-utf8.t and Converter.pm for old Perl version(v5.6)
+
 1.08  Mon Mar 26 20:39:05 2007
 	- fixed rt#25727 replace utf8 characters with the appropriate escape sequences.
 	   14-utf8.t was effected by this change.
@@ -7,14 +19,6 @@ Revision history for Perl extension JSON.
            JSON::Converter can handle blessed scalar ref.
 	- fixed rt#25162 JSON::Converter can handle tied variable.
 	- fixed JSON::Converter::_valueToJson's hex bug pointed by Paul Seamons.
-
-	* TODO * making interface corresponding to JSON::XS
-	* TODO * correct unicode handling
-	* TODO * updating JSONRPC
-	* TODO * abandoning JSON::PC
-
-        I came as much as possible so that speed might not be reduced somehow
-        until now. However, I have already given up about that.
 
 1.07  Mon Jun  5 00:17:11 2006
 	- fixed treating octal numbers of JSON::Converter (was broken since 1.04)

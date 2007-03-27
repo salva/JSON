@@ -10,7 +10,7 @@ my ($js,$obj);
 
 
 SKIP: {
-  skip "can't use utf8.", 19, unless( JSON->USE_UTF8 );
+  skip "can't use utf8.", 15, unless( JSON->USE_UTF8 );
 
   if($] == 5.008){
      require Encode;

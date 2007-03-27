@@ -8,7 +8,7 @@ use strict;
 use JSON ();
 
 
-$VERSION = '1.10';
+$VERSION = '1.11';
 
 BEGIN {
     eval 'require Scalar::Util';
@@ -202,9 +202,6 @@ sub _valueToJson {
     elsif( blessed($value) and  $value->isa('JSON::NotString') ){
         return defined $value->{value} ? $value->{value} : 'null';
     }
-#    elsif ( ref($value) and overload::Method($value, '""')) { # by pasha sadri <psadri at gmail.com>
-#        return $value . '';
-#    }
     else {
         die "Invalid value" unless($self->{skipinvalid});
         return 'null';
@@ -230,6 +227,11 @@ sub _stringfy {
     my ($arg) = @_;
     $arg =~ s/([\\"\n\r\t\f\b])/$esc{$1}/eg;
 
+    unless (JSON->USE_UTF8) {
+        $arg =~ s/([\x00-\x07\x0b\x0e-\x1f])/'\\u00' . unpack('H2',$1)/eg;
+        return '"' . $arg . '"';
+    }
+
     # suggestion from rt#25727
     $arg = join('',
         map {
@@ -239,10 +241,6 @@ sub _stringfy {
                 chr($_) :
             $_ <= 65535 ?
                 sprintf('\u%04x', $_) : sprintf('\u%04x', $_)
-# TODO
-#                sprintf('\u%04x', $_) :
-#                join("", map { '\u' . $_ } unpack("H4H4", Encode::encode('UTF-16BE', pack("U", $_))));
-
         } unpack('U*', $arg)
     );
 
@@ -256,6 +254,11 @@ sub _stringfy_single_quote {
     my $arg = shift;
     $arg =~ s/([\\\n'\r\t\f\b])/$esc{$1}/eg;
 
+    unless (JSON->USE_UTF8) {
+        $arg =~ s/([\x00-\x07\x0b\x0e-\x1f])/'\\u00' . unpack('H2',$1)/eg;
+        return "'" . $arg ."'";
+    }
+
     $arg = join('',
         map {
             chr($_) =~ /[\x00-\x07\x0b\x0e-\x1f]/ ?
@@ -264,10 +267,6 @@ sub _stringfy_single_quote {
                 chr($_) :
             $_ <= 65535 ?
                 sprintf('\u%04x', $_) : sprintf('\u%04x', $_)
-# TODO
-#                sprintf('\u%04x', $_) :
-#                join("", map { '\u' . $_ } unpack("H4H4", Encode::encode('UTF-16BE', pack("U", $_))));
-
         } unpack('U*', $arg)
     );
 
