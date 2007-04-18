@@ -1,13 +1,19 @@
 Revision history for Perl extension JSON.
 
-	* TODO * making interface corresponding to JSON::XS
-        *         => an experimental module JSON::PP(already completed) -> JSON 2.0
-	* TODO * correct unicode handling
+	* JSON::PP was added
+
 	* TODO * updating JSONRPC
 	* TODO * abandoning JSON::PC
 
         * I came as much as possible so that speed might not be reduced somehow
         * until now. However, I have already given up about that.
+
+
+1.10  Wed Apr 18 15:49:00 2007
+	- added JSON::PP (will be renamed JSON)
+	- fixed typo in JSONRPC.pm (rt#25605 by CMANLEY)
+	- advanced the error handling of JSON::Parser
+        - added t/16-scalarobj.t, t/17-tied.t
 
 1.09  Wed Mar 28 06:40:56 2007
 	- fixed 14-utf8.t and Converter.pm for old Perl version(v5.6)

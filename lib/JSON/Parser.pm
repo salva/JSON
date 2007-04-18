@@ -8,6 +8,7 @@ package JSON::Parser;
 use vars qw($VERSION $USE_UTF8 $USE_UnicodeString);
 use strict;
 use JSON ();
+use Carp ();
 
 BEGIN { # suggested by philip.tellis[at]gmail.com
     if ($] < 5.008) {
@@ -29,7 +30,7 @@ BEGIN { # suggested by philip.tellis[at]gmail.com
 }
 
 
-$VERSION  = '1.04';
+$VERSION  = '1.05';
 
 # TODO: I made 1.03, but that will be used after JSON 1.90
 
@@ -343,8 +344,15 @@ sub new {
 
 
     sub error {
-        my $error = shift;
-        die "$error at $at in $text.";
+        my $error  = shift;
+
+        local $Carp::CarpLevel = 1;
+
+        my $str = substr($text, $at);
+
+        unless (length $str) { $str = '(end of string)'; }
+
+        Carp::croak "$error, at character offset $at ($str)";
     }
 
 

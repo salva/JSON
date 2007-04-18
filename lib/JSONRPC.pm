@@ -7,24 +7,24 @@ use JSON;
 
 use vars qw($VERSION);
 
-$VERSION = 0.99;
+$VERSION = 0.991;
 
 
 sub new {
-	my $self = bless {}, shift;
-	$self->jsonParser( JSON::Parser->new() );
-	$self->jsonConverter( JSON::Converter->new );
-	$self;
+    my $self = bless {}, shift;
+    $self->jsonParser( JSON::Parser->new() );
+    $self->jsonConverter( JSON::Converter->new );
+    $self;
 }
 
 
 sub proxy { # re-bless a client class
-	my ($self,$url,$proxy_url) = @_;
-	$self = $self->new unless(ref($self));
-	my $class = ref($self) ? ref($self) . '::Client' : 'JSONRPC::Client';
-	$self = bless $self, $class;
-	$self->{_proxy} = [$url,$proxy_url] if(@_ > 1);
-	$self;
+    my ($self,$url,$proxy_url) = @_;
+    $self = $self->new unless(ref($self));
+    my $class = ref($self) ? ref($self) . '::Client' : 'JSONRPC::Client';
+    $self = bless $self, $class;
+    $self->{_proxy} = [$url,$proxy_url] if(@_ > 1);
+    $self;
 }
 
 
@@ -34,17 +34,17 @@ sub proxy { # re-bless a client class
 # At present, only the module name can be specified. 
 
 sub dispatch_to {
-	my $class = shift;
-	my $self  = ref($class) ? $class : $class->new;
-	my @srv   = @_;
+    my $class = shift;
+    my $self  = ref($class) ? $class : $class->new;
+    my @srv   = @_;
 
-	if(@srv){
-		$self->{_dispatch_to} = [ @srv ] ;
-		$self;
-	}
-	else{
-		@{ $self->{_dispatch_to} };
-	}
+    if(@srv){
+        $self->{_dispatch_to} = [ @srv ] ;
+        $self;
+    }
+    else{
+        @{ $self->{_dispatch_to} };
+    }
 }
 
 
@@ -56,7 +56,7 @@ sub handle { }
 # get a request from client (subclass must have the implementation.)
 # The return value is a HTTP::Request object.
 
-sub requset { }
+sub request { }
 
 
 # return a response (subclass must have the implementation.)
@@ -77,11 +77,11 @@ sub no_response {}
 # return a mthod name and any parameters from JSON-RPC data structure.
 
 sub get_request_data {
-	my $self   = shift;
-	my $js     = $self->{json_data};
-	my $method = $js->{method} || '';
-	my $params = $js->{params} || [];
-	return ($method,$params);
+    my $self   = shift;
+    my $js     = $self->{json_data};
+    my $method = $js->{method} || '';
+    my $params = $js->{params} || [];
+    return ($method,$params);
 }
 
 
@@ -89,155 +89,155 @@ sub get_request_data {
 # $r is a HTTP::Request object.
 
 sub find_method {
-	my ($self, $method, $r) = @_;
-	my $path  = ($r and $r->uri) ? ($r->uri->path || '') : '';
+    my ($self, $method, $r) = @_;
+    my $path  = ($r and $r->uri) ? ($r->uri->path || '') : '';
 
-	$path =~ s{^/|/$}{}g;
-	$path =~ s{/}{::}g;
+    $path =~ s{^/|/$}{}g;
+    $path =~ s{/}{::}g;
 
-	no strict 'refs';
+    no strict 'refs';
 
-	for my $srv ( @{$self->{_dispatch_to}} ){
+    for my $srv ( @{$self->{_dispatch_to}} ){
 
-		if($srv =~ m{/}){ # URI
-			my $class = _path_to_class($srv);
-			if($path eq $class){
-				unless(defined %{"$class\::"}){
-					eval qq| require $class |;
-					if($@){ warn $@; return; }
-				}
-				if(my $func = $class->can($method)){
-					return $func;
-				}
-			}
-			else{
-				next;
-			}
-		}
-		else{
-			if(my $func = $srv->can($method)){
-				return $func;
-			}
-		}
-	}
+        if($srv =~ m{/}){ # URI
+            my $class = _path_to_class($srv);
+            if($path eq $class){
+                unless(defined %{"$class\::"}){
+                    eval qq| require $class |;
+                    if($@){ warn $@; return; }
+                }
+                if(my $func = $class->can($method)){
+                    return $func;
+                }
+            }
+            else{
+                next;
+            }
+        }
+        else{
+            if(my $func = $srv->can($method)){
+                return $func;
+            }
+        }
+    }
 
-	return;
+    return;
 }
 
 sub _path_to_class {
-	my $path = $_[0];
-	$path =~ s{^/|/$}{}g;
-	$path =~ s{/}{::}g;
-	return $path;
+    my $path = $_[0];
+    $path =~ s{^/|/$}{}g;
+    $path =~ s{/}{::}g;
+    return $path;
 }
 
 # execution of method : return value is JSON-RPC data struture.
 # $func->($self,@$params) returns a scalar or a hash ref or an array ref.
 
 sub handle_method {
-	my ($self, $r)       = @_;
-	my ($method,$params) = $self->get_request_data();
+    my ($self, $r)       = @_;
+    my ($method,$params) = $self->get_request_data();
 
-	if( my $func = $self->find_method($method, $r) ){
-		my $result = $func->($self,@$params);
-		$self->set_response_data($result)
-	}
-	else{
-		$self->set_err('No such a method.');
-	}
+    if( my $func = $self->find_method($method, $r) ){
+        my $result = $func->($self,@$params);
+        $self->set_response_data($result)
+    }
+    else{
+        $self->set_err('No such a method.');
+    }
 }
 
 
 # execution of notification
 
 sub notification {
-	my $self  = shift;
-	my ($method,$params) = $self->get_request_data();
+    my $self  = shift;
+    my ($method,$params) = $self->get_request_data();
 
-	if(my $func = $self->find_method($method)){
-		$func->($self,@$params);
-	}
+    if(my $func = $self->find_method($method)){
+        $func->($self,@$params);
+    }
 
-	return 1;
+    return 1;
 }
 
 
 # convert Perl data into JSON for a response.
 
 sub set_response_data {
-	my $self  = shift;
-	my $value = shift;
-	my $id    = $self->request_id;
-	my $error = $self->error;
+    my $self  = shift;
+    my $value = shift;
+    my $id    = $self->request_id;
+    my $error = $self->error;
 
-	if(!defined $value){ $value = JSON::Null; }
-	if(!defined $error){ $error = JSON::Null; }
+    if(!defined $value){ $value = JSON::Null; }
+    if(!defined $error){ $error = JSON::Null; }
 
-	my $result = {
-		id     => $id,
-		result => $value,
-		error  => $error,
-	};
+    my $result = {
+        id     => $id,
+        result => $value,
+        error  => $error,
+    };
 
-	return $self->jsonConverter->objToJson($result);
+    return $self->jsonConverter->objToJson($result);
 }
 
 
 # convert Perl data into JSON for an error response.
 
 sub set_err {
-	my $self  = shift;
-	my $error = shift;
-	my $id    = $self->request_id;
+    my $self  = shift;
+    my $error = shift;
+    my $id    = $self->request_id;
 
-	my $result = {
-		id     => $id,
-		result => JSON::Null,
-		error  => $error,
-	};
+    my $result = {
+        id     => $id,
+        result => JSON::Null,
+        error  => $error,
+    };
 
-	return $self->jsonConverter->objToJson($result);
+    return $self->jsonConverter->objToJson($result);
 }
 
 
 # accessor of error object
 
 sub error {
-	my $self = shift;
-	$self->{_error} = $_[0] if(@_ > 0);
-	$self->{_error};
+    my $self = shift;
+    $self->{_error} = $_[0] if(@_ > 0);
+    $self->{_error};
 }
 
 
 # accessor of id
 
 sub request_id {
-	my $self = shift;
+    my $self = shift;
 
-	if(@_ > 0){
-		$self->{_request_id} = $_[0];
-		if(ref($self->{_request_id}) =~ /JSON/ and !defined $self->{_request_id}->{value}){
-			$self->{_request_id} = undef;
-		}
-	}
+    if(@_ > 0){
+        $self->{_request_id} = $_[0];
+        if(ref($self->{_request_id}) =~ /JSON/ and !defined $self->{_request_id}->{value}){
+            $self->{_request_id} = undef;
+        }
+    }
 
-	$self->{_request_id};
+    $self->{_request_id};
 }
 
 
 # accessor to JSON::Parser
 
 sub jsonParser {
-	$_[0]->{json_parser} = $_[1] if(@_ > 1);
-	return $_[0]->{json_parser};
+    $_[0]->{json_parser} = $_[1] if(@_ > 1);
+    return $_[0]->{json_parser};
 }
 
 
 # accessor to JSON::Converter
 
 sub jsonConverter {
-	$_[0]->{json_converter} = $_[1] if(@_ > 1);
-	return $_[0]->{json_converter};
+    $_[0]->{json_converter} = $_[1] if(@_ > 1);
+    return $_[0]->{json_converter};
 }
 
 
@@ -252,24 +252,24 @@ use vars qw($AUTOLOAD);
 
 
 sub AUTOLOAD {
-	my $self = shift;
-	my $attr = $AUTOLOAD;
+    my $self = shift;
+    my $attr = $AUTOLOAD;
 
-	$attr =~ s/.*:://;
+    $attr =~ s/.*:://;
 
-	return if($attr eq 'DESTROY');
+    return if($attr eq 'DESTROY');
 
-	$attr =~ s/^_//;
+    $attr =~ s/^_//;
 
-	my $res = $self->call($attr,[@_])->result;
+    my $res = $self->call($attr,[@_])->result;
 
-	if($res->error){
-		$self->{_error} = $res->{error};
-		return;
-	}
-	else{
-		$res->result;
-	}
+    if($res->error){
+        $self->{_error} = $res->{error};
+        return;
+    }
+    else{
+        $res->result;
+    }
 }
 
 
@@ -278,19 +278,19 @@ sub AUTOLOAD {
 # explicitly set undef into $id, notification mode.
 
 sub call {
-	my ($self, $method, $params, $id) = @_;
+    my ($self, $method, $params, $id) = @_;
 
-	if(@_ == 3){ $id = 'JsonRpcClient'; }
-	$self->{_id} = $id;
+    if(@_ == 3){ $id = 'JsonRpcClient'; }
+    $self->{_id} = $id;
 
-	my $content = eval q|
-		$self->jsonConverter->objToJson({
-			method => $method, params => $params, id => $id
-		})
-	| or die $@;
+    my $content = eval q|
+        $self->jsonConverter->objToJson({
+            method => $method, params => $params, id => $id
+        })
+    | or die $@;
 
-	$self->{_response} = $self->send($content);
-	$self;
+    $self->{_response} = $self->send($content);
+    $self;
 }
 
 
@@ -302,37 +302,37 @@ sub send {}
 # return the result value.
 
 sub result {
-	my ($self) = @_;
-	my $response  = $self->{_response};
+    my ($self) = @_;
+    my $response  = $self->{_response};
 
-	my $result = bless {
-		success => $response->is_success,
-		error   => undef,
-		result  => undef,
-		id      => undef,
-	}, 'JSONRPC::Response';
+    my $result = bless {
+        success => $response->is_success,
+        error   => undef,
+        result  => undef,
+        id      => undef,
+    }, 'JSONRPC::Response';
 
-	unless( $response->is_success ){
-		$self->{_error} = $response->code;
-		$result->error($response->code);
-		return $result;
-	}
-	else{
-		$self->{_error} = undef;
-	}
+    unless( $response->is_success ){
+        $self->{_error} = $response->code;
+        $result->error($response->code);
+        return $result;
+    }
+    else{
+        $self->{_error} = undef;
+    }
 
-	my $json = $response->content;
-	my $obj  = eval q| $self->jsonParser->jsonToObj($json, {unmapping => 1}) |;
+    my $json = $response->content;
+    my $obj  = eval q| $self->jsonParser->jsonToObj($json, {unmapping => 1}) |;
 
-	return if(!$obj); # notification?
+    return if(!$obj); # notification?
 
-	if($obj->{id} eq $self->{_id}){
-		$result->result( $obj->{result} );
-		$result->error( $obj->{error} );
-		$result->id( $obj->{id} );
-	}
+    if($obj->{id} eq $self->{_id}){
+        $result->result( $obj->{result} );
+        $result->error( $obj->{error} );
+        $result->id( $obj->{id} );
+    }
 
-	return $result;
+    return $result;
 }
 
 
@@ -352,20 +352,20 @@ use base qw(HTTP::Response);
 sub is_success { $_[0]->{success} }
 
 sub result {
-	$_[0]->{result} = $_[1] if(@_ > 1);
-	$_[0]->{result};
+    $_[0]->{result} = $_[1] if(@_ > 1);
+    $_[0]->{result};
 }
 
 
 sub error {
-	$_[0]->{error} = $_[1] if(@_ > 1);
-	$_[0]->{error};
+    $_[0]->{error} = $_[1] if(@_ > 1);
+    $_[0]->{error};
 }
 
 
 sub id {
-	$_[0]->{id} = $_[1] if(@_ > 1);
-	$_[0]->{id};
+    $_[0]->{id} = $_[1] if(@_ > 1);
+    $_[0]->{id};
 }
 
 
@@ -473,7 +473,7 @@ Makamaka Hannyaharamitu, E<lt>makamaka[at]cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2005 by Makamaka Hannyaharamitu
+Copyright 2005-2007 by Makamaka Hannyaharamitu
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 

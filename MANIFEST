@@ -1,5 +1,6 @@
 Changes
 lib/JSON.pm
+lib/JSON/PP.pm
 lib/JSON/Parser.pm
 lib/JSON/Converter.pm
 lib/JSONRPC.pm
@@ -23,6 +24,8 @@ t/12-selfconv.t
 t/13-expo.t
 t/14-utf8.t
 t/15-singlequote.t
+t/16-scalarobj.t
+t/17-tied.t
 t/rpc01-use.t
 t/rpc02-query.t
 t/rpc03-query2.t
