@@ -1,13 +1,8 @@
 Revision history for Perl extension JSON.
 
-	* JSON::PP was added
 
-	* TODO * updating JSONRPC
-	* TODO * abandoning JSON::PC
-
-        * I came as much as possible so that speed might not be reduced somehow
-        * until now. However, I have already given up about that.
-
+1.11  Mon Apr 23 13:31:15 2007
+	- updated JSON::PP
 
 1.10  Wed Apr 18 15:49:00 2007
 	- added JSON::PP (will be renamed JSON)
