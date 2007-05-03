@@ -42,7 +42,8 @@ $obj = {"id" => "1.02"};
 $obj = {"id" => 1.02};
 { local $JSON::AUTOCONVERT = 0;
 	$js = objToJson($obj);
-	is($js,'{"id":"1.02"}');
+#	is($js,'{"id":"1.02"}');
+	is($js,'{"id":1.02}'); # Since JSON 1.12, works correctly even though non autoconv.
 }
 
 	$js = objToJson($obj);
@@ -50,7 +51,8 @@ $obj = {"id" => 1.02};
 
 	$json = new JSON (autoconv => 0);
 	$js = $json->objToJson($obj);
-	is($js,'{"id":"1.02"}');
+#	is($js,'{"id":"1.02"}');
+	is($js,'{"id":1.02}'); # Since JSON v1.12, works correctly even though non autoconv.
 
 	$json = new JSON (autoconv => 1);
 	$js = $json->objToJson($obj);

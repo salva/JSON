@@ -6,9 +6,10 @@ use Carp;
 use vars qw($VERSION $USE_UTF8);
 use strict;
 use JSON ();
+use B ();
 
 
-$VERSION = '1.11';
+$VERSION = '1.12';
 
 BEGIN {
     eval 'require Scalar::Util';
@@ -192,6 +193,12 @@ sub _valueToJson {
             return 'true'  if($value =~ /^[Tt][Rr][Uu][Ee]$/);
             return 'false' if($value =~ /^[Ff][Aa][Ll][Ss][Ee]$/);
         }
+
+        my $b_obj = B::svref_2object(\$value);  # for round trip problem
+        # SvTYPE is IV or NV?
+        return $value # as is 
+                if ($b_obj->FLAGS & 0x00010000 or $b_obj->FLAGS & 0x00020000);
+
         return _stringfy($value);
     }
     elsif($JSON::Converter::execcoderef and ref($value) eq 'CODE'){

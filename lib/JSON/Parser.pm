@@ -30,7 +30,7 @@ BEGIN { # suggested by philip.tellis[at]gmail.com
 }
 
 
-$VERSION  = '1.05';
+$VERSION  = '1.06';
 
 # TODO: I made 1.03, but that will be used after JSON 1.90
 
@@ -101,10 +101,10 @@ sub new {
         $s = '';
 
         if($ch eq '"' or ($apos and $ch eq "'")){
-            my $boundChar = $ch;
+            my $boundChar = $ch if ($apos);
 
             OUTER: while( defined(next_chr()) ){
-                if($ch eq '"' or ($apos and $ch eq $boundChar)){
+                if((!$apos and $ch eq '"') or ($apos and $ch eq $boundChar)){
                     next_chr();
                     $utf8 and utf8::decode($s);
                     return $s;

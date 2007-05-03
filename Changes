@@ -1,11 +1,24 @@
 Revision history for Perl extension JSON.
 
+##########################################################################
+# In next updated version, JSON::PP will be renamed JSON.                #
+# Then interfaces and module variables completely differ from a former.  #
+##########################################################################
+
+1.12  Thu May  3 18:32:28 2007
+	- fixed loose quoting bug in JSON::Parser. (Thanks to Allen Day and his patch)
+	- fixed round-trip problem (pointed by Marc Lehmann's JSON::XS)
+	      (However, only in the case of non autoconv mode)
+	- updated JSON::PP
+	    now can be used in Perl 5.8, 5.6, 5.005 (There is functional restriction).
+	    added allow_bigint (Thanks to Adam Sussman's patch)
+	    added self_encode, singlequote, allow_barekey
 
 1.11  Mon Apr 23 13:31:15 2007
 	- updated JSON::PP
 
 1.10  Wed Apr 18 15:49:00 2007
-	- added JSON::PP (will be renamed JSON)
+	- added JSON::PP
 	- fixed typo in JSONRPC.pm (rt#25605 by CMANLEY)
 	- advanced the error handling of JSON::Parser
         - added t/16-scalarobj.t, t/17-tied.t

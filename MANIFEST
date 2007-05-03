@@ -1,6 +1,8 @@
 Changes
 lib/JSON.pm
 lib/JSON/PP.pm
+lib/JSON/PP56.pm
+lib/JSON/PP5005.pm
 lib/JSON/Parser.pm
 lib/JSON/Converter.pm
 lib/JSONRPC.pm
@@ -26,6 +28,9 @@ t/14-utf8.t
 t/15-singlequote.t
 t/16-scalarobj.t
 t/17-tied.t
+t/18-roundtrip.t
+t/pp00-load.t
+t/pp01-base.t
 t/rpc01-use.t
 t/rpc02-query.t
 t/rpc03-query2.t

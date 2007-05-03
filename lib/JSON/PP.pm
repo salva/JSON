@@ -2,33 +2,55 @@ package JSON::PP;
 
 # JSON-2.0
 
-use 5.008;
+use 5.005;
 use strict;
 use base qw(Exporter);
 use overload;
 
 use Carp ();
 use B ();
-use Encode ();
 #use Devel::Peek;
 
-$JSON::PP::VERSION = '0.04';
+$JSON::PP::VERSION = '0.95';
 
 @JSON::PP::EXPORT = qw(from_json to_json jsonToObj objToJson);
 
 *jsonToObj = *from_json;
 *objToJson = *to_json;
 
+my $ENABLE_UTF16;
 
-# method shrink is a dummy.
 
 BEGIN {
-    for my $name (qw/utf8 allow_nonref ascii indent space_before space_after
-                     canonical  max_depth shrink
-                     deny_blessed_object UTF8_off allow_tied self_encode singlequote
-                     allow_bigint
-    /)
-    {
+    my @properties = qw(
+            utf8 allow_nonref indent space_before space_after canonical  max_depth shrink
+            allow_tied self_encode singlequote allow_bigint disable_UTF8 strict
+            allow_barekey
+    );
+
+    # Perl version check, ascii() is enable?
+    # Helper module may set @JSON::PP::_properties.
+    if ($] >= 5.008) {
+        require Encode;
+        push @properties, 'ascii';
+
+        $ENABLE_UTF16 = 1;
+
+        if ($] == 5.008) {
+            *utf8::is_utf8 = *Encode::is_utf8;
+        }
+
+        *JSON_encode_ascii  = *_encode_ascii;
+    }
+    else {
+        my $helper = $] >= 5.006 ? 'JSON::PP56' : 'JSON::PP5005';
+        eval qq| require $helper |;
+        if ($@) { Carp::croak $@; }
+        push @properties, @JSON::PP::_properties;
+        $ENABLE_UTF16 = $JSON::PP::_ENABLE_UTF16;
+    }
+
+    for my $name (@properties) {
         eval qq|
             sub $name {
                 \$_[0]->{$name} = defined \$_[1] ? \$_[1] : 1;
@@ -39,16 +61,24 @@ BEGIN {
 
 }
 
+
+
 # Functions
 
-sub to_json {
+my %encode_allow_method
+     = map {($_ => 1)} qw/utf8 pretty allow_tied allow_nonref self_encode/;
+my %decode_allow_method
+     = map {($_ => 1)} qw/utf8 allow_nonref disable_UTF8 strict singlequote allow_bigint allow_barekey/;
+
+
+sub to_json { # encode
     my ($obj, $opt) = @_;
 
     if ($opt) {
         my $json = JSON::PP->new->utf8;
 
-        for my $allow (qw/utf8 pretty allow_tied allow_nonref self_encode/) {
-            $json->$allow($opt->{$allow}) if (exists $opt->{$allow});
+        for my $method (keys %$opt) {
+            $json->$method($opt->{$method}) if (exists $encode_allow_method{$method});
         }
 
         return $json->encode($obj);
@@ -60,8 +90,21 @@ sub to_json {
 }
 
 
-sub from_json {
-    __PACKAGE__->new->utf8->decode(shift);
+sub from_json { # decode
+    my ($obj, $opt) = @_;
+
+    if ($opt) {
+        my $json = JSON::PP->new->utf8;
+
+        for my $method (keys %$opt) {
+            $json->$method($opt->{$method}) if (exists $decode_allow_method{$method});
+        }
+
+        return $json->decode($obj);
+    }
+    else {
+        __PACKAGE__->new->utf8->decode(shift);
+    }
 }
 
 
@@ -70,15 +113,11 @@ sub from_json {
 sub new {
     my $class = shift;
     my $self  = {
-        max_depth => 512,
+        max_depth => 32,
         unmap     => 1,
         indent    => 0,
-        fallback  => sub { encode_error('Invalid value.') },
+        fallback  => sub { encode_error('Invalid value. JSON can only reference.') },
     };
-
-    $self->{max_depth} = 512;
-    $self->{unmap}     = 1;
-    $self->{fallback}  = sub { encode_error('Invalid value.') };
 
     bless $self, $class;
 }
@@ -87,15 +126,8 @@ sub new {
 sub encode {
     my $self = shift;
     my $obj  = shift;
-    my $str;
 
-    $str = $self->encode_json($obj);
-
-    if ($self->{utf8}) {
-        utf8::encode($str);
-    }
-
-    return $str;
+    return $self->encode_json($obj);
 }
 
 
@@ -103,9 +135,7 @@ sub decode {
     my $self = shift;
     my $json = shift;
 
-    my $obj = $self->decode_json($json);
-
-    return $obj;
+    return $self->decode_json($json);
 }
 
 
@@ -115,7 +145,7 @@ sub property {
     my ($self, $name, $value) = @_;
 
     if (@_ == 1) {
-        Carp::croak('property requires 1 or 2 arguments.');
+        Carp::croak('property() requires 1 or 2 arguments.');
     }
     elsif (@_ == 2) {
         $self->{$name};
@@ -162,6 +192,7 @@ sub pretty {
     my $ascii;
     my $utf8;
     my $self_encode;
+    my $disable_UTF8;
 
     sub encode_json {
         my $self = shift;
@@ -170,9 +201,8 @@ sub pretty {
         $indent_count = 0;
         $depth        = 0;
 
-        ($indent, $ascii, $utf8, $self_encode, $max_depth)
-                         = @{$self}{qw/indent ascii utf8 self_encode max_depth/};
-        #$max_depth ||= 512;
+        ($indent, $ascii, $utf8, $self_encode, $max_depth, $disable_UTF8)
+                     = @{$self}{qw/indent ascii utf8 self_encode max_depth disable_UTF8/};
 
         $keysort = !$self->{canonical} ? undef
                                        : ref($self->{canonical}) eq 'CODE' ? $self->{canonical}
@@ -203,7 +233,7 @@ sub pretty {
         }
         elsif ($type) { # blessed object?
             if (blessed($obj)) {
-                if ($self->{self_encode} && $obj->can('toJson')) {
+                if ($self->{self_encode} and $obj->can('toJson')) {
                     return $self->selfToJson($obj);
                 }
                 elsif (!$obj->isa('JSON::NotString')) { # JSON::NotString => valueToJson
@@ -214,7 +244,7 @@ sub pretty {
                 }
             }
             else {
-                return;
+                return $self->valueToJson($obj);
             }
         }
         else{
@@ -236,15 +266,17 @@ sub pretty {
         my ($pre, $post) = $indent ? $self->_upIndent() : ('', '');
         my $del = ($self->{space_before} ? ' ' : '') . ':' . ($self->{space_after} ? ' ' : '');
 
-        while (my ($k, $v) = each %$obj) {
+        for my $k (keys %$obj) {
+            my $v = $obj->{$k};
             $res{$k} = $self->toJson($v) || $self->valueToJson($v);
         }
 
         $self->_downIndent() if ($indent);
 
         return '{' . $pre
-                   . join(",$pre", map { _stringfy($self, $_)
-                   . $del .$res{$_} } _sort($self, \%res))
+                   . join(",$pre", map { utf8::decode($_) if ($] < 5.008);
+                     _stringfy($self, $_)
+                   . $del . $res{$_} } _sort($self, \%res))
                    . $post
                    . '}';
     }
@@ -279,7 +311,7 @@ sub pretty {
         my $b_obj = B::svref_2object(\$value);  # for round trip problem
         # SvTYPE is IV or NV?
         return $value # as is 
-                if ($b_obj->FLAGS & 0x00010000 or$b_obj->FLAGS & 0x00020000);
+                if ($b_obj->FLAGS & 0x00010000 or $b_obj->FLAGS & 0x00020000);
 
         my $type = ref($value);
 
@@ -293,19 +325,23 @@ sub pretty {
             if ((overload::StrVal($value) =~ /=(\w+)/)[0]) {
                 return $self->valueToJson("$value");
             }
-            encode_error("JSON can only non reference.") if ($type eq 'CODE');
 
             if ($type eq 'SCALAR' and defined $$value) {
                 return   $$value eq '1' ? 'true'
                        : $$value eq '0' ? 'false' : encode_error("cannot encode reference.");
             }
 
-            encode_error("cannot encode reference.");
+            if ($type eq 'CODE') {
+                encode_error("JSON can only reference.");
+            }
+            else {
+                encode_error("cannot encode reference.");
+            }
+
         }
         else {
             return $self->{fallback}->($value)
                  if ($self->{fallback} and ref($self->{fallback}) eq 'CODE');
-            #die "Invalid value" unless($self->{skipinvalid});
             return 'null';
         }
 
@@ -327,50 +363,21 @@ sub pretty {
 
     sub _stringfy {
         my ($self, $arg) = @_;
-        my $is_utf8;
 
-        if (utf8::is_utf8($arg)) {
-            $is_utf8 = 1;
-        }
+        $arg =~ s/([\x22\x5c\n\r\t\f\b])/$esc{$1}/eg;
 
-        $arg =~ s/([\\"\n\r\t\f\b])/$esc{$1}/eg;
-
-        unless ($utf8) {
-            $arg =~ s/([\x00-\x07\x0b\x0e-\x1f])/'\\u00' . unpack('H2',$1)/eg;
-        }
+        $arg =~ s/([\x00-\x08\x0b\x0e-\x1f])/'\\u00' . unpack('H2', $1)/eg;
 
         if ($ascii) {
-            $arg = join('',
-                map {
-                    chr($_) =~ /[\x00-\x07\x0b\x0e-\x1f]/ ?
-                        sprintf('\u%04x', $_) :
-                    $_ <= 127 ?
-                        chr($_) :
-                    $_ <= 255 ?
-                        sprintf('\u%04x', $_) :
-                    $_ <= 65535 ?
-                        sprintf('\u%04x', $_) :
-                        join("", map { '\u' . $_ }
-                                unpack("H4H4", Encode::encode('UTF-16BE', pack("U", $_))));
-                } unpack('U*', $arg)
-            );
+            $arg = JSON_encode_ascii($arg);
         }
 
-        if ($utf8 and !$self->{UTF8_off}) {
-            utf8::decode($arg);
+        if ($utf8 or $disable_UTF8) {
+            utf8::encode($arg);
         }
 
         return '"' . $arg . '"';
     }
-
-
-    #sub _to_UTF16 {
-    #    return sprintf("\\u%s\\u%s", unpack("H4H4", Encode::encode('UTF-16BE', pack("U", $_[0]))));
-    #    return join("", map { '\u' . $_ } unpack("H4H4", Encode::encode('UTF-16BE', pack("U", $_[0]))));
-    #    my $c = $_[0];
-    #    Encode::from_to($c, 'UTF-16BE', 'utf8');
-    #    join( "", map { '\u' . $_ } unpack('H4H4', $c) );
-    #}
 
 
     sub selfToJson {
@@ -380,7 +387,6 @@ sub pretty {
 
 
     sub encode_error {
-        #local $Carp::CarpLevel = 1;
         my $error  = shift;
         Carp::croak "$error";
     }
@@ -429,6 +435,22 @@ sub pretty {
 
 
 
+sub _encode_ascii {
+    join('',
+        map {
+            chr($_) =~ /[\x00-\x08\x0b\x0e-\x1f]/ ?
+                sprintf('\u%04x', $_) :
+            $_ <= 127 ?
+                chr($_) :
+            $_ <= 65535 ?
+                sprintf('\u%04x', $_) :
+                join("", map { '\u' . $_ }
+                        unpack("H4H4", Encode::encode('UTF-16BE', pack("U", $_))));
+        } unpack('U*', $_[0])
+    );
+}
+
+
 #
 # JSON => Perl
 #
@@ -436,6 +458,7 @@ sub pretty {
 # from Adam Sussman
 use Config;
 my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
+#my $max_intsize = length(2 ** ($Config{intsize} * 8)) - 1;
 
 
 { # PARSE 
@@ -462,33 +485,35 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
     my $utf8;           # 
     my $max_depth;      # max nest nubmer of objects and arrays
     my $allow_bigint;   # using Math::BigInt
+    my $disable_UTF8;   # don't flag UTF8 on
     my $singlequote;    # loosely quoting
+    my $strict;         # 
 
     # no effect
-    my $UTF8_off;       # don't flag UTF8 on
-    my $bare;           # bareKey
-
-
+    my $allow_barekey;  # bareKey
 
     sub decode_json {
         my $self = shift;
 
         ($text, $at, $ch, $depth) = (shift, 0, '', 0);
 
-        if ( utf8::is_utf8($text) ) {
-            $is_utf8 = 1;
+        if (!defined $text or ref $text) {
+            decode_error("malformed text data.");
         }
+
+        $is_utf8 = 1 if (utf8::is_utf8($text));
 
         $len  = length $text;
 
-        ($utf8, $unmap, $max_depth, $allow_bigint)
-                     = @{$self}{qw/utf8 unmap max_depth allow_bigint/};
+        ($utf8, $unmap, $max_depth, $allow_bigint, $disable_UTF8, $strict, $singlequote, $allow_barekey)
+                 = @{$self}{qw/utf8 unmap max_depth allow_bigint disable_UTF8 strict singlequote allow_barekey/};
 
         unless ($self->{allow_nonref}) {
             white();
             unless (defined $ch and ($ch eq '{' or $ch eq '[')) {
                 decode_error('JSON text must be an object or array'
-                       . ' (but found number, string, true, false or null, use allow_nonref to allow this)', 1);
+                       . ' (but found number, string, true, false or null,'
+                       . ' use allow_nonref to allow this)', 1);
             }
         }
 
@@ -515,22 +540,26 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
 
     sub string {
         my ($i,$s,$t,$u);
-        $s = '';
         my @utf16;
 
+        $s = ''; # basically UTF8 flag on
+
         if($ch eq '"' or ($singlequote and $ch eq "'")){
-            my $boundChar = $ch;
+            my $boundChar = $ch if ($singlequote);
 
             OUTER: while( defined(next_chr()) ){
 
-                if($ch eq '"' or ($singlequote and $ch eq $boundChar)){
+                if((!$singlequote and $ch eq '"') or ($singlequote and $ch eq $boundChar)){
                     next_chr();
 
                     if (@utf16) {
                         decode_error("missing low surrogate character in surrogate pair");
                     }
 
-                    if ($utf8 and !$UTF8_off) {
+                    if($disable_UTF8) {
+                        utf8::encode($s) if (utf8::is_utf8($s));
+                    }
+                    else {
                         utf8::decode($s);
                     }
 
@@ -541,8 +570,9 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
                     if(exists $escapes{$ch}){
                         $s .= $escapes{$ch};
                     }
-                    elsif($ch eq 'u'){
-                        my $u = ''; # UNICODE
+                    elsif($ch eq 'u'){ # UNICODE handling
+                        # JSON_decode_unicode();
+                        my $u = '';
 
                         for(1..4){
                             $ch = next_chr();
@@ -550,12 +580,18 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
                             $u .= $ch;
                         }
 
+                        unless ($ENABLE_UTF16) { # can't handle UTF-16
+                            $s .= chr(hex($u));
+                            next;
+                        }
+
                         # U+10000 - U+10FFFF
-                        if ($u =~ /^[dD][89abAB]/) { # UTF-16 high surrogate?
+                        # U+D800 - U+DBFF
+                        if ($u =~ /^[dD][89abAB][0-9a-fA-F]{2}/) { # UTF-16 high surrogate?
                             push @utf16, $u;
                         }
                         # U+DC00 - U+DFFF
-                        elsif ($u =~ /^[dD][cdefCDEF]/) { # UTF-16 low surrogate?
+                        elsif ($u =~ /^[dD][c-fC-F][0-9a-fA-F]{2}/) { # UTF-16 low surrogate?
                             unless (scalar(@utf16)) {
                                 decode_error("missing high surrogate character in surrogate pair");
                             }
@@ -568,9 +604,10 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
                             if (scalar(@utf16)) {
                                 decode_error("surrogate pair expected");
                             }
+
                             $s .= chr(hex($u));
                         }
-                    }
+                    } # UNICODE handling
                     else{
                         $s .= $ch;
                     }
@@ -581,9 +618,11 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
                             decode_error("malformed UTF-8 character in JSON string");
                         }
                     }
-#                    elsif ($ch =~ /[\\"\n\r\t\f\b]/) {
-#                        decode_error('invalid character');
-#                    }
+                    elsif ($strict) {
+                        if ($ch =~ /[\x00-\x1f\x22\x2f\x5c]/)  {
+                            decode_error('invalid character');
+                        }
+                    }
 
                     $s .= $ch;
                 }
@@ -649,7 +688,7 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
                 return $o;
             }
             while(defined $ch){
-                $k = ($bare and $ch ne '"' and $ch ne "'") ? bareKey() : string();
+                $k = ($allow_barekey and $ch ne '"' and $ch ne "'") ? bareKey() : string();
                 white();
 
                 if(!defined $ch or $ch ne ':'){
@@ -716,7 +755,7 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
         decode_error("Syntax decode_error (word) 'true' expected")  if ($word =~ /^t/);
         decode_error("Syntax decode_error (word) 'false' expected") if ($word =~ /^f/);
         decode_error("Syntax decode_error (word)" .
-                        "malformed json string, neither array, object, number, string or atom");
+                        " malformed json string, neither array, object, number, string or atom");
     }
 
 
@@ -724,11 +763,11 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
         my $n    = '';
         my $v;
 
+        # According to RFC4627, hex or oct digts are invalid.
         if($ch eq '0'){
             my $peek = substr($text,$at,1);
             my $hex  = $peek =~ /[xX]/; # 0 or 1
 
-            # Strictly, These formats are invalid.
             if($hex){
                 ($n) = ( substr($text, $at+1) =~ /^([0-9a-fA-F]+)/);
             }
@@ -796,7 +835,7 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
 
         if ($allow_bigint) { # from Adam Sussman
             require Math::BigInt;
-            return Math::BigInt->new($v) if ($v !~ /[-+.eE]/ and length $v > $max_intsize);
+            return Math::BigInt->new($v) if ($v !~ /[.eE]/ and length $v > $max_intsize);
         }
 
         return 0+$v;
@@ -843,10 +882,7 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
     sub decode_error {
         my $error  = shift;
         my $no_rep = shift;
-
-        #local $Carp::CarpLevel = 1;
-
-        my $str = substr($text, $at);
+        my $str    = defined $text ? substr($text, $at) : '';
 
         unless (length $str) { $str = '(end of string)'; }
 
@@ -879,8 +915,6 @@ BEGIN {
         };
     }
 }
-
-
 
 
 ###############################
@@ -942,11 +976,16 @@ JSON::PP - An experimental JSON::XS compatible Pure Perl module.
  $json = new JSON;
  $json_text = $json->ascii->pretty($obj);
 
+ # you can set options to functions.
+
+ $json_text = to_json($obj, {ascii => 1, intend => 2});
+ $obj       = from_json($json_text, {utf8 => 0});
+
 
 =head1 DESCRIPTION
 
 This module is L<JSON::XS> compatible Pure Perl module.
-It requires Perl 5.8.
+( Perl better than 5.008 is recommended)
 
 Module variables ($JSON::*) were abolished.
 
@@ -960,10 +999,15 @@ For t/02_error.t compatible, error messages was copied partially from JSON::XS.
 
 =over
 
-=item * perhaps correct unicode handling?
+=item * perhaps correct unicode handling
 
 This module knows how to handle Unicode (perhaps),
 but not yet documents how and when it does so.
+
+In Perl5.6x, Unicode handling requires L<Unicode::String> module.
+
+Perl 5.005_xx, Unicode handling is disable currenlty.
+
 
 =item * round-trip integrity
 
@@ -974,6 +1018,8 @@ using L<B> module.
 
 I want to bring close to XS.
 How do you want to carry out?
+
+you can set C<strict> decoding method.
 
 =item * slow
 
@@ -1022,9 +1068,16 @@ Returns JSON::PP object.
 
 See to JSON::XS.
 
+In Perl 5.6, this method requires L<Unicode::String>.
+If you don't have Unicode::String,
+the method is always set to false and warns.
+
+
 =item utf8
 
 See to JSON::XS.
+
+Currently this module always handles UTF-16 as UTF-16BE.
 
 =item pretty
 
@@ -1069,6 +1122,7 @@ Not yet implemented.
 
 See to JSON::XS. 
 Strictly, this module does not carry out equivalent to XS.
+By default, not 512 (JSON::XS) but 32.
 
 =item encode
 
@@ -1077,6 +1131,8 @@ See to JSON::XS.
 =item decode
 
 See to JSON::XS.
+In Perl 5.6, if you don't have Unicode::String,
+the method can't handle UTF-16(BE) char and returns as is.
 
 
 =item property
@@ -1090,17 +1146,18 @@ Accessor.
 
 =item self_encode
 
-See L<JSON>'s self convert.
+See L<JSON/BLESSED OBJECT>'s I<self convert> function.
 
 
 =item deny_blessed_object
 
-Not yet implemented.
+Useless? Not yet implemented.
 
 
-=item UTF8_off
+=item disable_UTF8
 
-Not yet implemented.
+If this option is set, UTF8 flag in strings generated
+by C<encode>/C<decode> is off.
 
 
 =item allow_tied
@@ -1110,12 +1167,15 @@ Enable.
 
 =item singlequote
 
-Enable.
+Allows to decode single quoted strings.
+
+Unlike L<JSON> module, this module does not encode
+Perl string into single quoted string any longer.
 
 
-=item barekey
+=item allow_barekey
 
-Not yet implemented.
+Allows to decode bare key of member.
 
 
 =item allow_bigint
@@ -1123,30 +1183,39 @@ Not yet implemented.
 When json text has any integer in decoding more than Perl can't handle,
 If this option is on, they are converted into L<Math::BigInt> objects.
 
+
+=item strict
+
+For JSON format, unescaped [\x00-\x1f\x22\x2f\x5c] strings are invalid and
+JSON::XS decodes just like that. While this module can deocde thoese.
+But if this option is set, the module strictly decodes.
+
+
 =back
 
 
 =head1 COMPARISON
 
-Using a benchmark program in the JSON::XS distribution.
+Using a benchmark program in the JSON::XS (v1.11) distribution.
 
  module     |     encode |     decode |
  -----------|------------|------------|
- JSON::PP   |  10090.120 |   4621.901 |
- -----------|------------|------------|
+ JSON::PP   |  11092.260 |   4482.033 |
+ -----------+------------+------------+
  JSON::XS   | 341513.380 | 226138.509 |
  -----------+------------+------------+
+
+In case t/12_binary.t (JSON::XS distribution).
+(shrink of JSON::PP has no effect.)
+
+JSON::PP takes 138 (sec).
+
+JSON::XS takes 4.
 
 
 =head1 TODO
 
 =over
-
-=item Want to work on Perl 5.6
-
-This module uses L<Encode>...
-I want the unicode handling without L<Encode>
-when used in perl5.6.
 
 =item Document!
 
@@ -1163,6 +1232,7 @@ Under the cleaning.
 
 L<JSON>, L<JSON::XS>
 
+RFC4627
 
 =head1 AUTHOR
 

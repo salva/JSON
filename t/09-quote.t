@@ -1,6 +1,6 @@
 use Test::More;
 use strict;
-BEGIN { plan tests => 47 };
+BEGIN { plan tests => 50 };
 use JSON;
 
 #########################
@@ -104,6 +104,15 @@ is(join(',',$obj->[2]->{a}),'b');
 $js = objToJson($obj);
 is($js,q|[{"foo":[1,2,3]},-0.12,{"a":"b"}]|);
 
+
+$js = q|['foo",'bar']|;
+$obj = eval q| ( jsonToObj$js ) |;
+is($obj, undef);
+
+$js = q|['foo","bar']|;
+$obj = eval q| jsonToObj( $js ) |;
+is($obj->[0], 'foo","bar');
+
 }
 
 
@@ -173,6 +182,13 @@ is($js,q|[{"foo":[1,2,3]},-0.12,{"a":"b"}]|);
 $js = q|[{foo:[1,2,3]},-0.12,{a:'b'}]|;
 $obj = eval q| jsonToObj($js) |;
 like($@, qr/Syntax error/i);
+
+
+
+$js = q|['foo\',\'bar']|;
+$obj = eval q| jsonToObj( $js ) |;
+is($obj, undef);
+
 
 }
 

@@ -124,7 +124,7 @@ $js = objToJson($obj);
 like($js, qr/"a":\[1,2,3\]/);
 like($js, qr/"b":"{'a' => bless\( {}, 'MyTest' \)}"/);
 like($js, qr/"d":1.3/);
-like($js, qr/"e":"1.3"/);
+like($js, qr/"e":1.3/);
 
 my $obj3 = jsonToObj($js);
 
