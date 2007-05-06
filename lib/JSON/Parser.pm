@@ -30,7 +30,7 @@ BEGIN { # suggested by philip.tellis[at]gmail.com
 }
 
 
-$VERSION  = '1.06';
+$VERSION  = '1.07';
 
 # TODO: I made 1.03, but that will be used after JSON 1.90
 
@@ -382,11 +382,25 @@ use overload (
           ! defined $_[0]->{value}  ? undef
         : $_[0]->{value} eq 'false' ? 0 : 1;
     },
+    'eq'   => sub { (defined $_[0]->{value} ? $_[0]->{value} : 'null') eq $_[1] },
+    'ne'   => sub { (defined $_[0]->{value} ? $_[0]->{value} : 'null') ne $_[1] },
+    '=='   => sub { (!defined $_[0]->{value} ? -1 : $_[0]->{value} eq 'false' ? 0 : 1) == $_[1] },
+    '!='   => sub { (!defined $_[0]->{value} ? -1 : $_[0]->{value} eq 'false' ? 0 : 1) != $_[1] },
 );
 
 1;
 
 __END__
+
+    'eq'   => sub {
+        if (ref($_[1]) eq 'JSON::NotString') {
+            return $_[0]->{value} eq $_[1]->{value};
+        }
+        else {
+            return $_[0]->{value} eq $_[1];
+        }
+    },
+
 
 =head1 SEE ALSO
 

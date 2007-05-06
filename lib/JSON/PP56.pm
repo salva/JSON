@@ -5,11 +5,9 @@ use strict;
 
 my @properties;
 
-$JSON::PP56::VERSION = '0.11';
+$JSON::PP56::VERSION = '0.12';
 
 BEGIN {
-    *JSON::PP::JSON_encode_ascii = *JSON::PP::_encode_ascii;
-
     sub utf8::is_utf8 {
         1; # It is considered that UTF8 flag on for Perl 5.6.
     }
@@ -31,7 +29,8 @@ unless ($@) {
         eval q| *Unicode::String::utf16be = *Unicode::String::utf16 |;
     }
 
-    *JSON::PP::JSON_encode_ascii = *_encode_ascii;
+    *JSON::PP::JSON_encode_ascii   = *_encode_ascii;
+    *JSON::PP::JSON_decode_unicode = *JSON::PP::_decode_unicode;
 
     eval q|
         sub Encode::encode {
@@ -57,7 +56,8 @@ unless ($@) {
     push @JSON::PP::_properties, 'ascii';
 }
 else {
-    $JSON::PP::_ENABLE_UTF16 = 0;
+    *JSON::PP::JSON_encode_ascii   = *_noop_encode_ascii;
+    *JSON::PP::JSON_decode_unicode = *_disable_decode_unicode;
 
     eval q| 
         sub JSON::PP::ascii {
@@ -71,8 +71,6 @@ else {
 sub _encode_ascii {
     join('',
         map {
-            chr($_) =~ /[\x00-\x08\x0b\x0e-\x1f]/ ?
-                sprintf('\u%04x', $_) :
             $_ <= 127 ?
                 chr($_) :
             $_ <= 65535 ?
@@ -126,6 +124,15 @@ sub unpack_emu { # for Perl 5.6 unpack warnings
 
     return @ret;
 }
+
+
+
+sub _noop_encode_ascii {
+    # noop
+}
+
+
+sub _disable_decode_unicode { chr(hex($_[0])); }
 
 
 1;

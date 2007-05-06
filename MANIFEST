@@ -31,6 +31,7 @@ t/17-tied.t
 t/18-roundtrip.t
 t/pp00-load.t
 t/pp01-base.t
+t/pp02-literal.t
 t/rpc01-use.t
 t/rpc02-query.t
 t/rpc03-query2.t

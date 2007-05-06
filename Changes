@@ -1,9 +1,16 @@
 Revision history for Perl extension JSON.
 
 ##########################################################################
-# In next updated version, JSON::PP will be renamed JSON.                #
+# In next large update version, JSON::PP will be renamed JSON.           #
 # Then interfaces and module variables completely differ from a former.  #
+# Please test JSON::PP.                                                  #
 ##########################################################################
+
+1.13  Sun May  6 14:03:31 2007
+	- fixed round-trip handling for Perl5.9.4
+	  (Thanks to andreas.koenig and Nicholas Clark)
+	- added overload operator 'eq', 'ne', '==' and '!='
+	    for JSON::NotString (JSON::Literal for JSON::PP) (rt#26923 by Ryan Morris)
 
 1.12  Thu May  3 18:32:28 2007
 	- fixed loose quoting bug in JSON::Parser. (Thanks to Allen Day and his patch)

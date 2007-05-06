@@ -1,6 +1,6 @@
 use Test::More;
 use strict;
-BEGIN { plan tests => 43 };
+BEGIN { plan tests => 60 };
 use JSON;
 
 #########################
@@ -81,6 +81,27 @@ ok(!$obj->[1],'false');
 ok(!$obj->[2],'null');
 $js = objToJson($obj);
 is($js,'[true,false,null]');
+
+ok($obj->[0] eq 'true', 'eq true');
+ok($obj->[0] ne 'false', 'ne false');
+ok($obj->[1] eq 'false', 'eq false');
+ok($obj->[1] ne 'true', 'ne true');
+ok($obj->[2] eq 'null', 'eq null');
+ok($obj->[2] ne 'true', 'ne true');
+ok($obj->[2] ne 'false', 'ne false');
+
+ok($obj->[0] eq $obj->[0]);
+ok($obj->[0] ne $obj->[1]);
+ok($obj->[2] eq $obj->[2]);
+ok($obj->[2] ne $obj->[0]);
+ok($obj->[2] ne $obj->[1]);
+
+ok($obj->[0] == 1);
+ok($obj->[0] != 0);
+ok($obj->[1] == 0);
+ok($obj->[1] != 1);
+ok($obj->[2] != 1 and $obj->[2] != 0);
+
 
 { local $JSON::UnMapping = 1;
 $js  = q|[true,false,null]|;

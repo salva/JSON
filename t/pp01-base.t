@@ -60,7 +60,7 @@ is(join(',',$obj->[2]->{a}),'b');
 $js = objToJson($obj);
 is($js,q|[{"foo":[1,2,3]},-0.12,{"a":"b"}]|);
 
-$js = objToJson([JSON::PP::true, JSON::PP::false, JSON::PP::null]);
+$js = objToJson([JSON::true, JSON::false, JSON::null]);
 is($js,'[true,false,null]', 'JSON::NotString [true,false,null]');
 
 $obj = ["\x01"];

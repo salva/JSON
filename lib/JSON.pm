@@ -9,7 +9,7 @@ use vars qw($AUTOCONVERT $VERSION $UnMapping $BareKey $QuotApos
             $ExecCoderef $SkipInvalid $Pretty $Indent $Delimiter
             $KeySort $ConvBlessed $SelfConvert $UTF8 $SingleQuote);
 
-$VERSION = '1.12';
+$VERSION = '1.13';
 
 $AUTOCONVERT = 1;
 $SkipInvalid = 0;

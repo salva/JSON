@@ -5,10 +5,11 @@ use strict;
 
 my @properties;
 
-$JSON::PP5005::VERSION = '0.02';
+$JSON::PP5005::VERSION = '0.04';
 
 BEGIN {
-    *JSON::PP::JSON_encode_ascii = *_encode_ascii;
+    *JSON::PP::JSON_encode_ascii   = *_encode_ascii;
+    *JSON::PP::JSON_decode_unicode = *_disable_decode_unicode;
 
     sub utf8::is_utf8 {
         1; # It is considered that UTF8 flag on for Perl 5.005.
@@ -25,13 +26,20 @@ BEGIN {
         $_[0]->{ascii} = 0; $_[0];
     }
 
-    $JSON::PP::_ENABLE_UTF16 = 0;
+    sub B::SVf_IOK () { 0x00010000; }
+
+
+    sub B::SVf_NOK () { 0x00020000; }
+
 }
 
 
 sub _encode_ascii {
     # currently noop
 }
+
+
+sub _disable_decode_unicode { chr(hex($_[0])); }
 
 
 1;
