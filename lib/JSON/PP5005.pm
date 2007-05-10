@@ -5,10 +5,11 @@ use strict;
 
 my @properties;
 
-$JSON::PP5005::VERSION = '0.04';
+$JSON::PP5005::VERSION = '0.05';
 
 BEGIN {
     *JSON::PP::JSON_encode_ascii   = *_encode_ascii;
+    *JSON::PP::JSON_encode_latin1  = *_encode_latin1;
     *JSON::PP::JSON_decode_unicode = *_disable_decode_unicode;
 
     sub utf8::is_utf8 {
@@ -26,9 +27,13 @@ BEGIN {
         $_[0]->{ascii} = 0; $_[0];
     }
 
+    sub JSON::PP::latin1 {
+        warn "latin1() is disable in Perl5.005.";
+        $_[0]->{latin1} = 0; $_[0];
+    }
+
+    # missing in B module.
     sub B::SVf_IOK () { 0x00010000; }
-
-
     sub B::SVf_NOK () { 0x00020000; }
 
 }
@@ -39,7 +44,13 @@ sub _encode_ascii {
 }
 
 
+sub _encode_latin1 {
+    # currently noop
+}
+
+
 sub _disable_decode_unicode { chr(hex($_[0])); }
+
 
 
 1;

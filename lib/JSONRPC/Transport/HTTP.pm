@@ -8,7 +8,7 @@ use vars qw($VERSION);
 use HTTP::Request;
 use HTTP::Response;
 
-$VERSION = 1.01;
+$VERSION = 1.02;
 
 #
 #
@@ -417,6 +417,16 @@ JSONRPC::Transport::HTTP
  my $client = JSONRPC::Transport::HTTP->proxy($uri);
  
  print $client->echo('This is test.'); # the alias, _echo is same.
+
+
+=head1 TRANSITION PLAN
+
+In the next large update version, JSON and JSONRPC modules are split.
+
+  JSONRPC* and Apache::JSONRPC are deleted from JSON dist.
+  JSONRPC::Client, JSONRPC::Server and JSONRPC::Procedure in JSON::RPC dist.
+
+  Modules in JSON::RPC dist supports JSONRPC protocol v1.1 and 1.0.
 
 
 =head1 DESCRIPTION

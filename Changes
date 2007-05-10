@@ -1,10 +1,25 @@
 Revision history for Perl extension JSON.
 
+## TRANSITION PLAN ######################################################
+
+In the next large update version, JSON and JSONRPC modules are split.
+
+  JSON::Parser and JSON::Converter are deleted from JSON dist.
+  JSON and JSON::PP in JSON dist.
+
+  JSON becomes wrapper to JSON::XS and/or JSON::PP.
+
+  JSONRPC* and Apache::JSONRPC are deleted from JSON dist.
+  JSONRPC::Client, JSONRPC::Server and JSONRPC::Procedure in JSON::RPC dist.
+
+  Modules in JSON::RPC dist supports JSONRPC protocol v1.1 and 1.0.
+
 ##########################################################################
-# In next large update version, JSON::PP will be renamed JSON.           #
-# Then interfaces and module variables completely differ from a former.  #
-# Please test JSON::PP.                                                  #
-##########################################################################
+
+1.14  Thu May 10 15:32:18 2007
+	- added 'TRANSITION PLAN'
+	- updated JSON::PP
+	  (latin1 and decode_prefix are added for JSON::XS comatible)
 
 1.13  Sun May  6 14:03:31 2007
 	- fixed round-trip handling for Perl5.9.4

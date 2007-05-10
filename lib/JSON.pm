@@ -9,7 +9,7 @@ use vars qw($AUTOCONVERT $VERSION $UnMapping $BareKey $QuotApos
             $ExecCoderef $SkipInvalid $Pretty $Indent $Delimiter
             $KeySort $ConvBlessed $SelfConvert $UTF8 $SingleQuote);
 
-$VERSION = '1.13';
+$VERSION = '1.14';
 
 $AUTOCONVERT = 1;
 $SkipInvalid = 0;
@@ -269,6 +269,21 @@ JSON - parse and convert to JSON (JavaScript Object Notation).
 
  $json = JSON->new(pretty => 1, delimiter => 0);
  $json->objToJson($obj);
+
+
+=head1 TRANSITION PLAN
+
+In the next large update version, JSON and JSONRPC modules are split.
+
+  JSON::Parser and JSON::Converter are deleted from JSON dist.
+  JSON and JSON::PP in JSON dist.
+
+  JSON becomes wrapper to JSON::XS and/or JSON::PP.
+
+  JSONRPC* and Apache::JSONRPC are deleted from JSON dist.
+  JSONRPC::Client, JSONRPC::Server and JSONRPC::Procedure in JSON::RPC dist.
+
+  Modules in JSON::RPC dist supports JSONRPC protocol v1.1 and 1.0.
 
 
 =head1 DESCRIPTION

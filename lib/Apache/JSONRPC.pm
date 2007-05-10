@@ -5,7 +5,7 @@ use JSONRPC::Transport::HTTP;
 use base qw(JSONRPC::Transport::HTTP::Apache);
 use vars qw($VERSION);
 
-$VERSION = 1.00;
+$VERSION = '1.01';
 
 my $server = __PACKAGE__->new;
 
@@ -35,6 +35,16 @@ httpd.conf or htaccess
  # URL path base
  # PerlSetVar dispatch_to "MyApp/Test, MyApp/Test2"
  PerlSendHeader On
+
+=head1 TRANSITION PLAN
+
+In the next large update version, JSON and JSONRPC modules are split.
+
+  JSONRPC* and Apache::JSONRPC are deleted from JSON dist.
+  JSONRPC::Client, JSONRPC::Server and JSONRPC::Procedure in JSON::RPC dist.
+
+  Modules in JSON::RPC dist supports JSONRPC protocol v1.1 and 1.0.
+
 
 =head1 DESCRIPTION
 

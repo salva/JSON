@@ -11,7 +11,7 @@ use Carp ();
 use B ();
 #use Devel::Peek;
 
-$JSON::PP::VERSION = '0.951';
+$JSON::PP::VERSION = '0.96';
 
 @JSON::PP::EXPORT = qw(from_json to_json jsonToObj objToJson);
 
@@ -31,11 +31,12 @@ BEGIN {
     # Helper module may set @JSON::PP::_properties.
     if ($] >= 5.008) {
         require Encode;
-        push @properties, 'ascii';
+        push @properties, 'ascii', 'latin1';
 
         *utf8::is_utf8 = *Encode::is_utf8 if ($] == 5.008);
 
         *JSON_encode_ascii   = *_encode_ascii;
+        *JSON_encode_latin1  = *_encode_latin1;
         *JSON_decode_unicode = *_decode_unicode;
     }
     else {
@@ -61,7 +62,7 @@ BEGIN {
 # Functions
 
 my %encode_allow_method
-     = map {($_ => 1)} qw/utf8 pretty allow_tied allow_nonref self_encode escape_slash/;
+     = map {($_ => 1)} qw/utf8 pretty allow_nonref latin1 allow_tied self_encode escape_slash/;
 my %decode_allow_method
      = map {($_ => 1)} qw/utf8 allow_nonref disable_UTF8 strict singlequote allow_bigint
                           allow_barekey literal_value/;
@@ -124,18 +125,17 @@ sub new {
 
 
 sub encode {
-    my $self = shift;
-    my $obj  = shift;
-
-    return $self->encode_json($obj);
+    return $_[0]->encode_json($_[1]);
 }
 
 
 sub decode {
-    my $self = shift;
-    my $json = shift;
+    return $_[0]->decode_json($_[1], 0x00000000);
+}
 
-    return $self->decode_json($json);
+
+sub decode_prefix {
+    return $_[0]->decode_json($_[1], 0x00000001);
 }
 
 
@@ -201,8 +201,10 @@ sub JSON::null  () { JSON::Literal::null->new; }
     my $utf8;
     my $self_encode;
     my $disable_UTF8;
-
     my $escape_slash;
+
+    my $latin1;
+
 
     sub encode_json {
         my $self = shift;
@@ -211,8 +213,8 @@ sub JSON::null  () { JSON::Literal::null->new; }
         $indent_count = 0;
         $depth        = 0;
 
-        ($indent, $ascii, $utf8, $self_encode, $max_depth, $disable_UTF8, $escape_slash)
-                 = @{$self}{qw/indent ascii utf8 self_encode max_depth disable_UTF8 escape_slash/};
+        ($indent, $ascii, $utf8, $self_encode, $max_depth, $disable_UTF8, $escape_slash, $latin1)
+                 = @{$self}{qw/indent ascii utf8 self_encode max_depth disable_UTF8 escape_slash latin1/};
 
         $keysort = !$self->{canonical} ? undef
                                        : ref($self->{canonical}) eq 'CODE' ? $self->{canonical}
@@ -381,6 +383,10 @@ sub JSON::null  () { JSON::Literal::null->new; }
             $arg = JSON_encode_ascii($arg);
         }
 
+        if ($latin1) {
+            $arg = JSON_encode_latin1($arg);
+        }
+
         if ($utf8 or $disable_UTF8) {
             utf8::encode($arg);
         }
@@ -458,6 +464,21 @@ sub _encode_ascii {
 }
 
 
+sub _encode_latin1 {
+    join('',
+        map {
+            $_ <= 255 ?
+                chr($_) :
+            $_ <= 65535 ?
+                sprintf('\u%04x', $_) :
+                join("", map { '\u' . $_ }
+                        unpack("H4H4", Encode::encode('UTF-16BE', pack("U", $_))));
+        } unpack('U*', $_[0])
+    );
+}
+
+
+
 #
 # JSON => Perl
 #
@@ -497,10 +518,15 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
     my $strict;         # 
     my $allow_barekey;  # bareKey
 
-    sub decode_json {
-        my $self = shift;
+    # $opt flag
+    # 0x00000001 .... decode_prefix
 
-        ($text, $at, $ch, $depth) = (shift, 0, '', 0);
+    sub decode_json {
+        my ($self, $opt); # $opt is an effective flag during this decode_json.
+
+        ($self, $text, $opt) = @_;
+
+        ($at, $ch, $depth) = (0, '', 0);
 
         if (!defined $text or ref $text) {
             decode_error("malformed text data.");
@@ -530,9 +556,19 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
                     : ( $octets[2]                ) ? 'UTF-16LE'
                     : (!$octets[2]                ) ? 'UTF-32LE'
                     : 'unknown';
-        #print $encoding, "\n";
 
-        value();
+        my $result = value();
+
+        if ($len > $at) {
+            my $consumed = $at - 1;
+            white();
+            if ($ch) {
+                decode_error("garbage after JSON object") unless ($opt & 0x00000001);
+                return ($result, $consumed);
+            }
+        }
+
+        $result;
     }
 
 
@@ -1118,6 +1154,19 @@ In Perl 5.6, this method requires L<Unicode::String>.
 If you don't have Unicode::String,
 the method is always set to false and warns.
 
+In Perl 5.005, this option is currently disable.
+
+
+=item latin1
+
+See to JSON::XS.
+
+In Perl 5.6, this method requires L<Unicode::String>.
+If you don't have Unicode::String,
+the method is always set to false and warns.
+
+In Perl 5.005, this option is currently disable.
+
 
 =item utf8
 
@@ -1195,11 +1244,6 @@ Accessor.
 See L<JSON/BLESSED OBJECT>'s I<self convert> function.
 
 
-=item deny_blessed_object
-
-Useless? Not yet implemented.
-
-
 =item disable_UTF8
 
 If this option is set, UTF8 flag in strings generated
@@ -1209,6 +1253,8 @@ by C<encode>/C<decode> is off.
 =item allow_tied
 
 Enable.
+
+This option will be obsoleted.
 
 
 =item singlequote
@@ -1236,11 +1282,22 @@ For JSON format, unescaped [\x00-\x1f\x22\x2f\x5c] strings are invalid and
 JSON::XS decodes just like that. While this module can deocde thoese.
 But if this option is set, the module strictly decodes.
 
+
+=item escape_slash
+
+By default, JSON::PP encodes strings without escaping slash (U+002F).
+Setting the option to escape slash.
+
+
 =item literal_value
 
 
 
 =back
+
+
+=head1 MAPPING
+
 
 
 =head1 COMPARISON
@@ -1257,7 +1314,7 @@ Using a benchmark program in the JSON::XS (v1.11) distribution.
 In case t/12_binary.t (JSON::XS distribution).
 (shrink of JSON::PP has no effect.)
 
-JSON::PP takes 138 (sec).
+JSON::PP takes 147 (sec).
 
 JSON::XS takes 4.
 

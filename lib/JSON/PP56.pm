@@ -5,7 +5,7 @@ use strict;
 
 my @properties;
 
-$JSON::PP56::VERSION = '0.12';
+$JSON::PP56::VERSION = '0.13';
 
 BEGIN {
     sub utf8::is_utf8 {
@@ -30,6 +30,7 @@ unless ($@) {
     }
 
     *JSON::PP::JSON_encode_ascii   = *_encode_ascii;
+    *JSON::PP::JSON_encode_latin1  = *_encode_latin1;
     *JSON::PP::JSON_decode_unicode = *JSON::PP::_decode_unicode;
 
     eval q|
@@ -53,7 +54,7 @@ unless ($@) {
 
     $JSON::PP::_ENABLE_UTF16 = 1;
 
-    push @JSON::PP::_properties, 'ascii';
+    push @JSON::PP::_properties, 'ascii', 'latin1';
 }
 else {
     *JSON::PP::JSON_encode_ascii   = *_noop_encode_ascii;
@@ -64,6 +65,11 @@ else {
             warn "ascii() is disable in Perl5.6x.";
             $_[0]->{ascii} = 0; $_[0];
         }
+
+        sub JSON::PP::latin1 {
+            warn "latin1() is disable in Perl5.6x.";
+            $_[0]->{latin1} = 0; $_[0];
+        }
     |;
 }
 
@@ -72,6 +78,20 @@ sub _encode_ascii {
     join('',
         map {
             $_ <= 127 ?
+                chr($_) :
+            $_ <= 65535 ?
+                sprintf('\u%04x', $_) :
+                join("", map { '\u' . $_ }
+                        unpack("H4H4", Encode::encode('UTF-16BE', pack("U", $_))));
+        } unpack_emu($_[0])
+    );
+}
+
+
+sub _encode_latin1 {
+    join('',
+        map {
+            $_ <= 255 ?
                 chr($_) :
             $_ <= 65535 ?
                 sprintf('\u%04x', $_) :
