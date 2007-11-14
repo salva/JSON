@@ -47,15 +47,18 @@ is($js,'{"foo":"0 0"}','{"foo":"0 0"}');
 
 $js  = q|[1,2,3]|;
 $obj = jsonToObj($js);
-is(join(',',@$obj),'1,2,3');
+
+#is(join(',',@$obj),'1,2,3'); # $obj contents become strings by join()!
+
+is(join(',', (my @dummy_obj1 = @$obj) ),'1,2,3');
 $js = objToJson($obj);
 is($js,'[1,2,3]');
 
 
 $js = q|[{"foo":[1,2,3]},-0.12,{"a":"b"}]|;
 $obj = jsonToObj($js);
-is(join(',',@{$obj->[0]->{foo}}),'1,2,3');
-is(join(',',$obj->[1]),'-0.12');
+is(join(',',(my @dummy_obj2 = @{$obj->[0]->{foo}})),'1,2,3');
+is(join(',',(my @dummy_obj3 = @$obj)[1]),'-0.12');
 is(join(',',$obj->[2]->{a}),'b');
 $js = objToJson($obj);
 is($js,q|[{"foo":[1,2,3]},-0.12,{"a":"b"}]|);

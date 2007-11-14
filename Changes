@@ -16,6 +16,26 @@ In the next large update version, JSON and JSONRPC modules are split.
 
 ##########################################################################
 
+1.15  Wed Nov 14 14:52:31 2007
+	[JSON]
+	- modified a bug (rt#28434: UTF-8 handling severly broken)
+            but recommend to use JSON::PP instead of JSON (with JSON::Converter)
+            as JSON::Converter's utf8 handling is incomplete.
+	- fixed rt#29139 (unary boolean negation generates)
+            objToJson([!1])  => [""]
+            objToJson([!!1]) => ["1"]
+	- fixed doc (rt#21038: QuotApos documentation is flawed)
+
+        [JSON::PP]
+	- updated JSON::PP for compatible to JSON::XS 1.52
+              adding max_size, relaxed, allow_blessed, convert_blessed,
+                     filter_json_object, filter_json_single_key_object
+	- modified a JSON::PP bug (rt#29988 JSON::PP recursion depth bug)
+        - Now JSON::PP's max_depth default value is 512.
+	- Now JSON::PP mapping policy is compatible to JSON::XS
+	- JSON:PP's allow_tie is obsoleted.
+
+
 1.14  Thu May 10 15:32:18 2007
 	- added 'TRANSITION PLAN'
 	- updated JSON::PP

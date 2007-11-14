@@ -5,7 +5,7 @@ use strict;
 
 my @properties;
 
-$JSON::PP5005::VERSION = '0.05';
+$JSON::PP5005::VERSION = '0.06';
 
 BEGIN {
     *JSON::PP::JSON_encode_ascii   = *_encode_ascii;
@@ -35,6 +35,9 @@ BEGIN {
     # missing in B module.
     sub B::SVf_IOK () { 0x00010000; }
     sub B::SVf_NOK () { 0x00020000; }
+    sub B::SVf_POK () { 0x00040000; }
+    sub B::SVp_IOK () { 0x01000000; }
+    sub B::SVp_NOK () { 0x02000000; }
 
 }
 

@@ -11,20 +11,21 @@ use Carp ();
 use B ();
 #use Devel::Peek;
 
-$JSON::PP::VERSION = '0.96';
+$JSON::PP::VERSION = '0.97';
 
 @JSON::PP::EXPORT = qw(from_json to_json jsonToObj objToJson);
 
-*jsonToObj = *from_json;
-*objToJson = *to_json;
+*jsonToObj = *from_json; # will be obsoleted.
+*objToJson = *to_json;   # will be obsoleted.
 
 
 
 BEGIN {
     my @properties = qw(
             utf8 allow_nonref indent space_before space_after canonical  max_depth shrink
-            allow_tied self_encode singlequote allow_bigint disable_UTF8 strict
+            self_encode singlequote allow_bigint disable_UTF8 strict
             allow_barekey escape_slash literal_value
+            allow_blessed convert_blessed relaxed
     );
 
     # Perl version check, ascii() is enable?
@@ -62,10 +63,12 @@ BEGIN {
 # Functions
 
 my %encode_allow_method
-     = map {($_ => 1)} qw/utf8 pretty allow_nonref latin1 allow_tied self_encode escape_slash/;
+     = map {($_ => 1)} qw/utf8 pretty allow_nonref latin1 allow_tied self_encode escape_slash
+                          allow_blessed convert_blessed
+                        /;
 my %decode_allow_method
      = map {($_ => 1)} qw/utf8 allow_nonref disable_UTF8 strict singlequote allow_bigint
-                          allow_barekey literal_value/;
+                          allow_barekey literal_value max_size relaxed/;
 
 
 sub to_json { # encode
@@ -114,7 +117,7 @@ sub from_json { # decode
 sub new {
     my $class = shift;
     my $self  = {
-        max_depth => 32,
+        max_depth => 512,
         unmap     => 1,
         indent    => 0,
         fallback  => sub { encode_error('Invalid value. JSON can only reference.') },
@@ -162,7 +165,7 @@ sub pretty {
     my ($self, $v) = @_;
     $self->{pretty} = defined $v ? $v : 1;
 
-    if ($v) { # JSON::XS compati
+    if ($v) { # JSON::PP's indent(3) ... JSON::XS indent(1) compati
         $self->indent(3);
         $self->space_before(1);
         $self->space_after(1);
@@ -176,13 +179,26 @@ sub pretty {
     $self;
 }
 
-###############################
+# etc
 
-sub JSON::true  () { JSON::Literal::true->new; }
+sub filter_json_object {
+    $_[0]->{cb_object} = defined $_[1] ? $_[1] : 0;
+    $_[0]->{F_HOOK} = ($_[0]->{cb_object} or $_[0]->{cb_sk_object}) ? 1 : 0;
+    $_[0];
+}
 
-sub JSON::false () { JSON::Literal::false->new; }
+sub filter_json_single_key_object {
+    if (@_ > 1) {
+        $_[0]->{cb_sk_object}->{$_[1]} = $_[2];
+    }
+    $_[0]->{F_HOOK} = ($_[0]->{cb_object} or $_[0]->{cb_sk_object}) ? 1 : 0;
+    $_[0];
+}
 
-sub JSON::null  () { JSON::Literal::null->new; }
+sub max_size { # as default is 0, written here.
+    $_[0]->{max_size} = defined $_[1] ? $_[1] : 0;
+    $_[0];
+}
 
 ###############################
 
@@ -204,6 +220,8 @@ sub JSON::null  () { JSON::Literal::null->new; }
     my $escape_slash;
 
     my $latin1;
+    my $allow_blessed;
+    my $convert_blessed;
 
 
     sub encode_json {
@@ -213,8 +231,11 @@ sub JSON::null  () { JSON::Literal::null->new; }
         $indent_count = 0;
         $depth        = 0;
 
-        ($indent, $ascii, $utf8, $self_encode, $max_depth, $disable_UTF8, $escape_slash, $latin1)
-                 = @{$self}{qw/indent ascii utf8 self_encode max_depth disable_UTF8 escape_slash latin1/};
+        ($indent, $ascii, $utf8, $self_encode, $max_depth, $disable_UTF8, $escape_slash, $latin1,
+            $allow_blessed, $convert_blessed)
+             = @{$self}{qw/indent ascii utf8 self_encode max_depth disable_UTF8 escape_slash latin1
+                            allow_blessed convert_blessed
+               /};
 
         $keysort = !$self->{canonical} ? undef
                                        : ref($self->{canonical}) eq 'CODE' ? $self->{canonical}
@@ -245,14 +266,23 @@ sub JSON::null  () { JSON::Literal::null->new; }
         }
         elsif ($type) { # blessed object?
             if (blessed($obj)) {
+
+                if ($convert_blessed) {
+                    if ( $obj->can('TO_JSON') ) {
+                        return $self->toJson( $obj->TO_JSON() );
+                    }
+                }
+
                 if ($self->{self_encode} and $obj->can('toJson')) {
                     return $self->selfToJson($obj);
                 }
-                elsif (!$obj->isa('JSON::Literal')) { # handling in valueToJson
-                    ($type) = B::svref_2object($obj) =~ /(.+)=/;
-                    return   $type eq 'B::AV' ? $self->arrayToJson($obj)
-                           : $type eq 'B::HV' ? $self->hashToJson($obj)
-                           : undef;
+                elsif (!$obj->isa('JSON::PP::Boolean')) { # handling in valueToJson
+
+                    encode_error("allow_blessed") unless ($allow_blessed);
+
+                    return 'null' unless ($convert_blessed);
+
+                    return 'null';
                 }
             }
             else {
@@ -273,8 +303,6 @@ sub JSON::null  () { JSON::Literal::null->new; }
         encode_error("data structure too deep (hit recursion limit)")
                                          if (++$depth > $max_depth);
 
-        $self->_tie_object($obj, \%res) if ($self->{allow_tied});
-
         my ($pre, $post) = $indent ? $self->_upIndent() : ('', '');
         my $del = ($self->{space_before} ? ' ' : '') . ':' . ($self->{space_after} ? ' ' : '');
 
@@ -283,6 +311,7 @@ sub JSON::null  () { JSON::Literal::null->new; }
             $res{$k} = $self->toJson($v) || $self->valueToJson($v);
         }
 
+        --$depth;
         $self->_downIndent() if ($indent);
 
         return '{' . $pre
@@ -301,14 +330,13 @@ sub JSON::null  () { JSON::Literal::null->new; }
         encode_error("data structure too deep (hit recursion limit)")
                                          if (++$depth > $max_depth);
 
-        $self->_tie_object($obj, \@res) if ($self->{allow_tied});
-
         my ($pre, $post) = $indent ? $self->_upIndent() : ('', '');
 
         for my $v (@$obj){
             push @res, $self->toJson($v) || $self->valueToJson($v);
         }
 
+        --$depth;
         $self->_downIndent() if ($indent);
 
         return '[' . $pre . join(",$pre" ,@res) . $post . ']';
@@ -322,16 +350,20 @@ sub JSON::null  () { JSON::Literal::null->new; }
 
         my $b_obj = B::svref_2object(\$value);  # for round trip problem
         # SvTYPE is IV or NV?
+
         return $value # as is 
-                if ($b_obj->FLAGS & B::SVf_IOK or $b_obj->FLAGS & B::SVf_NOK);
+            if ( ($b_obj->FLAGS & B::SVf_IOK or  $b_obj->FLAGS & B::SVp_IOK
+                        or $b_obj->FLAGS & B::SVf_NOK or $b_obj->FLAGS & B::SVp_NOK
+                   ) and !($b_obj->FLAGS & B::SVf_POK )
+            );
 
         my $type = ref($value);
 
         if(!$type){
             return _stringfy($self, $value);
         }
-        elsif( blessed($value) and  $value->isa('JSON::Literal') ){
-            return $value->{str};
+        elsif( blessed($value) and  $value->isa('JSON::PP::Boolean') ){
+            return $$value == 1 ? 'true' : 'false';
         }
         elsif ($type) {
             if ((overload::StrVal($value) =~ /=(\w+)/)[0]) {
@@ -413,21 +445,6 @@ sub JSON::null  () { JSON::Literal::null->new; }
     }
 
 
-    sub _tie_object {
-        my ($self, $obj, $res) = @_;
-        my $class;
-        # by ddascalescu+perl [at] gmail.com
-        if (ref($obj) eq 'ARRAY' and $class = tied @$obj) {
-            $class =~ s/=.*//;
-            tie @$res, $class;
-        }
-        elsif (ref($obj) eq 'HASH' and $class = tied %$obj) {
-            $class =~ s/=.*//;
-            tie %$res, $class;
-        }
-    }
-
-
     sub _upIndent {
         my $self  = shift;
         my $space = ' ' x $indent;
@@ -498,6 +515,8 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
         f    => "\xC",
         r    => "\xD",
         '\\' => '\\',
+        '"'  => '"',
+        '/'  => '/',
     );
 
     my $text; # json data
@@ -518,6 +537,13 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
     my $strict;         # 
     my $allow_barekey;  # bareKey
 
+    my $max_size;
+    my $relaxed;
+    my $cb_object;
+    my $cb_sk_object;
+
+    my $F_HOOK;
+
     # $opt flag
     # 0x00000001 .... decode_prefix
 
@@ -536,8 +562,14 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
 
         $len  = length $text;
 
-        ($utf8, $literal_value, $max_depth, $allow_bigint, $disable_UTF8, $strict, $singlequote, $allow_barekey)
-             = @{$self}{qw/utf8 literal_value max_depth allow_bigint disable_UTF8 strict singlequote allow_barekey/};
+        ($utf8, $literal_value, $max_depth, $allow_bigint, $disable_UTF8, $strict, $singlequote, $allow_barekey,
+            $max_size, $relaxed, $cb_object, $cb_sk_object, $F_HOOK)
+             = @{$self}{qw/utf8 literal_value max_depth allow_bigint disable_UTF8 strict singlequote allow_barekey
+                            max_size relaxed cb_object cb_sk_object F_HOOK/};
+
+        if ($max_size and $len > $max_size) { # this lines must be up.
+            decode_error("max_size");
+        }
 
         unless ($self->{allow_nonref}) {
             white();
@@ -559,7 +591,7 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
 
         my $result = value();
 
-        if ($len > $at) {
+        if ($len >= $at) {
             my $consumed = $at - 1;
             white();
             if ($ch) {
@@ -634,6 +666,9 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
 
                     }
                     else{
+                        if ($strict) {
+                            decode_error('invalid escaped character');
+                        }
                         $s .= $ch;
                     }
                 }
@@ -644,13 +679,19 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
                         }
                     }
                     elsif ($strict) {
-                        if ($ch =~ /[\x00-\x1f\x22\x2f\x5c]/)  {
+                        if ($ch =~ /[\x00-\x1f\x22\x5c]/)  { # / ok
                             decode_error('invalid character');
                         }
                     }
 
                     $s .= $ch;
                 }
+            }
+        }
+
+        if ($relaxed) { # from object(), relaxed
+            if ((( caller(1) )[3]) =~ /object$/ and $ch eq '}') {
+                return;
             }
         }
 
@@ -693,6 +734,15 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
                 }
             }
             else{
+
+                if ($relaxed and $ch eq '#') {
+                    pos($text) = $at;
+                    $text =~ /\G([^\n]*(?:\r\n|\r|\n))/g;
+                    $at = pos($text);
+                    next_chr;
+                    next;
+                }
+
                 last;
             }
         }
@@ -704,12 +754,16 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
         my $k;
 
         if($ch eq '{'){
-            decode_error('json structure too deep (hit recursion limit)', )
+            decode_error('json datastructure exceeds maximum nesting level (set a higher max_depth)')
                                                     if (++$depth > $max_depth);
             next_chr();
             white();
             if(defined $ch and $ch eq '}'){
+                --$depth;
                 next_chr();
+                if ($F_HOOK) {
+                    return _json_object_hook($o);
+                }
                 return $o;
             }
             while(defined $ch){
@@ -717,6 +771,16 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
                 white();
 
                 if(!defined $ch or $ch ne ':'){
+
+                    if ($relaxed and $ch eq '}') { # not beautiful...
+                        --$depth;
+                        next_chr();
+                        if ($F_HOOK) {
+                            return _json_object_hook($o);
+                        }
+                        return $o;
+                    }
+
                     decode_error("Bad object ; ':' expected");
                 }
 
@@ -727,12 +791,17 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
                 last if (!defined $ch);
 
                 if($ch eq '}'){
+                    --$depth;
                     next_chr();
+                    if ($F_HOOK) {
+                        return _json_object_hook($o);
+                    }
                     return $o;
                 }
                 elsif($ch ne ','){
                     last;
                 }
+
                 next_chr();
                 white();
             }
@@ -758,21 +827,28 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
         if($word eq 'true'){
             $at += 3;
             next_chr;
-            return $literal_value ? JSON::true : 1;
+            return $JSON::PP::true;
         }
         elsif($word eq 'null'){
             $at += 3;
             next_chr;
-            return $literal_value ? JSON::null : undef;
+            return undef;
         }
         elsif($word eq 'fals'){
             $at += 3;
             if(substr($text,$at,1) eq 'e'){
                 $at++;
                 next_chr;
-                return $literal_value ? JSON::false : 0;
+                return $JSON::PP::false;
             }
         }
+
+        if ($relaxed) { # from array(), relaxed
+            if ((( caller(2) )[3]) =~ /array$/ and $ch eq ']') {
+                return;
+            }
+        }
+
 
         $at--; # for decode_error report
 
@@ -794,10 +870,14 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
             my $hex  = $peek =~ /[xX]/; # 0 or 1
 
             if($hex){
+                decode_error("malformed number (leading zero must not be followed by another digit)");
                 ($n) = ( substr($text, $at+1) =~ /^([0-9a-fA-F]+)/);
             }
             else{ # oct
                 ($n) = ( substr($text, $at) =~ /^([0-7]+)/);
+                if (defined $n and length $n > 1) {
+                    decode_error("malformed number (leading zero must not be followed by another digit)");
+                }
             }
 
             if(defined $n and length($n)){
@@ -843,7 +923,15 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
             $n .= $ch;
             next_chr;
 
-            if(defined($ch) and ($ch eq '+' or $ch eq '-' or $ch =~ /\d/)){
+            if(defined($ch) and ($ch eq '+' or $ch eq '-')){
+                $n .= $ch;
+                next_chr;
+                if (!defined $ch or $ch =~ /\D/) {
+                    decode_error("malformed number (no digits after exp sign)");
+                }
+                $n .= $ch;
+            }
+            elsif(defined($ch) and $ch =~ /\d/){
                 $n .= $ch;
             }
             else {
@@ -871,17 +959,19 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
         my $a  = [];
 
         if ($ch eq '[') {
-            decode_error('json structure too deep (hit recursion limit)', 1)
+            decode_error('json datastructure exceeds maximum nesting level (set a higher max_depth)')
                                                         if (++$depth > $max_depth);
             next_chr();
             white();
             if(defined $ch and $ch eq ']'){
+                --$depth;
                 next_chr();
                 return $a;
             }
 
             while(defined($ch)){
                 push @$a, value();
+
                 white();
 
                 if (!defined $ch) {
@@ -889,15 +979,18 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
                 }
 
                 if($ch eq ']'){
+                    --$depth;
                     next_chr();
                     return $a;
                 }
                 elsif($ch ne ','){
                     last;
                 }
+
                 next_chr();
                 white();
             }
+
         }
 
         decode_error(", or ] expected while parsing array");
@@ -915,7 +1008,27 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
             Carp::croak "$error";
         }
         else {
-            Carp::croak "$error, at character offset $at ($str)";
+            Carp::croak "$error, at character offset $at [\"$str\"]";
+        }
+    }
+
+    sub _json_object_hook {
+        my $o    = $_[0];
+        my @ks = keys %{$o};
+
+        if ( $cb_sk_object and @ks == 1 and exists $cb_sk_object->{ $ks[0] } and ref $cb_sk_object->{ $ks[0] } ) {
+            my @val = $cb_sk_object->{ $ks[0] }->( $o->{$ks[0]} );
+            if (@val == 1) {
+                return $val[0];
+            }
+        }
+
+        my @val = $cb_object->($o) if ($cb_object);
+        if (@val == 0 or @val > 1) {
+            return $o;
+        }
+        else {
+            return $val[0];
         }
     }
 
@@ -973,47 +1086,55 @@ BEGIN {
 }
 
 
+
+
+# shamely copied and modified from JSON::XS code.
+
+$JSON::PP::true  = do { bless \(my $dummy = 1), "JSON::PP::Boolean" };
+$JSON::PP::false = do { bless \(my $dummy = 0), "JSON::PP::Boolean" };
+
+sub is_bool { defined $_[0] and UNIVERSAL::isa($_[0], "JSON::PP::Boolean"); }
+
+sub true  { $JSON::PP::true  }
+sub false { $JSON::PP::false }
+sub null  { undef; }
+
 ###############################
 
-package JSON::Literal;
-use overload (
-    '""'   => sub { $_[0]->{str} },
-    'bool' => sub { $_[0]->{value} },
-    'eq'   => sub { $_[0]->{str} eq $_[1] },
-    'ne'   => sub { $_[0]->{str} ne $_[1] },
-);
+# must be removed
+
+sub JSON::true  () { $JSON::PP::true; }
+
+sub JSON::false () { $JSON::PP::false; }
+
+sub JSON::null  () { undef; }
+
+###############################
+
+package JSON::PP::Boolean;
+
+use overload
+   "0+"     => sub { ${$_[0]} },
+   "++"     => sub { $_[0] = ${$_[0]} + 1 },
+   "--"     => sub { $_[0] = ${$_[0]} - 1 },
+   '""'     => sub { ${$_[0]} == 1 ? 'true' : 'false' },
+
+    'eq'    => \&comp,
+
+   fallback => 1;
 
 
-package JSON::Literal::true;
-use base qw(JSON::Literal);
+sub comp {
+    my ($obj, $op) = ref ($_[0]) ? ($_[0], $_[1]) : ($_[1], $_[0]);
+    if ($op eq 'true' or $op eq 'false') {
+        return "$obj" eq 'true' ? 'true' eq $op : 'false' eq $op;
+    }
+    else {
+        return $obj ? 1 == $op : 0 == $op;
+    }
+}
 
-use overload (
-    '=='   => sub { 1 == $_[1] },
-    '!='   => sub { 1 != $_[1] },
-);
 
-sub new { bless { str => 'true', value => 1 }; }
-
-
-package JSON::Literal::false;
-use base qw(JSON::Literal);
-
-use overload (
-    '=='   => sub { 0 == $_[1] },
-    '!='   => sub { 0 != $_[1] },
-);
-
-sub new { bless { str => 'false', value => 0 }; }
-
-package JSON::Literal::null;
-use base qw(JSON::Literal);
-
-use overload (
-    '=='   => sub { -1 == $_[1] },
-    '!='   => sub { -1 != $_[1] },
-);
-
-sub new { bless { str => 'null', value => undef }; }
 
 ###############################
 
@@ -1118,21 +1239,20 @@ See to JSON::XS.
 C<jsonToObj> is an alias.
 
 
-=item JSON::true
+=item JSON::PP::true
 
 Returns JSON true value which is blessed object.
-It C<isa> JSON::Literal object.
+It C<isa> JSON::PP::Boolean object.
 
-=item JSON::false
+=item JSON::PP::false
 
 Returns JSON false value which is blessed object.
-It C<isa> JSON::Literal object.
+It C<isa> JSON::PP::Boolean object.
 
 
-=item JSON::null
+=item JSON::PP::null
 
-Returns JSON null value which is blessed object.
-It C<isa> JSON::Literal object.
+Returns C<undef>.
 
 
 =back
@@ -1217,7 +1337,29 @@ Not yet implemented.
 
 See to JSON::XS. 
 Strictly, this module does not carry out equivalent to XS.
-By default, not 512 (JSON::XS) but 32.
+By default, 512.
+
+When a large value is set, it may raise a warning 'Deep recursion on subroutin'.
+
+
+=item max_size
+
+
+=item relaxed
+
+
+=item allow_blessed
+
+
+=item convert_blessed
+
+
+=item filter_json_object 
+
+
+=item filter_json_single_key_object 
+
+
 
 =item encode
 
@@ -1243,6 +1385,8 @@ Accessor.
 
 See L<JSON/BLESSED OBJECT>'s I<self convert> function.
 
+Will be obsoleted.
+
 
 =item disable_UTF8
 
@@ -1252,9 +1396,7 @@ by C<encode>/C<decode> is off.
 
 =item allow_tied
 
-Enable.
-
-This option will be obsoleted.
+Now disable.
 
 
 =item singlequote
@@ -1279,17 +1421,16 @@ If this option is on, they are converted into L<Math::BigInt> objects.
 =item strict
 
 For JSON format, unescaped [\x00-\x1f\x22\x2f\x5c] strings are invalid and
-JSON::XS decodes just like that. While this module can deocde thoese.
+JSON::XS decodes just like that (except for \x2f). While this module can deocde thoese.
 But if this option is set, the module strictly decodes.
 
+This option will be obsoleted and 'un-strict' will be added insted.
 
 =item escape_slash
 
 By default, JSON::PP encodes strings without escaping slash (U+002F).
 Setting the option to escape slash.
 
-
-=item literal_value
 
 
 
@@ -1298,6 +1439,7 @@ Setting the option to escape slash.
 
 =head1 MAPPING
 
+Now same as JSON::XS.
 
 
 =head1 COMPARISON

@@ -9,7 +9,7 @@ use vars qw($AUTOCONVERT $VERSION $UnMapping $BareKey $QuotApos
             $ExecCoderef $SkipInvalid $Pretty $Indent $Delimiter
             $KeySort $ConvBlessed $SelfConvert $UTF8 $SingleQuote);
 
-$VERSION = '1.14';
+$VERSION = '1.15';
 
 $AUTOCONVERT = 1;
 $SkipInvalid = 0;
@@ -357,6 +357,10 @@ See L</BLESSED OBJECT> for more info.
 =item singlequote
 
 See L</CONVERT WITH SINGLE QUOTES> for more info.
+
+=item quotapos
+
+See L</SINGLE QUOTATION OPTION>.
 
 =back 
 

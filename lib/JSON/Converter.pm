@@ -9,7 +9,7 @@ use JSON ();
 use B ();
 
 
-$VERSION = '1.13';
+$VERSION = '1.14';
 
 BEGIN {
     eval 'require Scalar::Util';
@@ -29,6 +29,9 @@ BEGIN {
         eval q{
             sub B::SVf_IOK () { 0x00010000; }
             sub B::SVf_NOK () { 0x00020000; }
+            sub B::SVf_POK () { 0x00040000; }
+            sub B::SVp_IOK () { 0x01000000; }
+            sub B::SVp_NOK () { 0x02000000; }
         };
     }
 
@@ -204,7 +207,10 @@ sub _valueToJson {
         my $b_obj = B::svref_2object(\$value);  # for round trip problem
         # SvTYPE is IV or NV?
         return $value # as is 
-                if ($b_obj->FLAGS & B::SVf_IOK or $b_obj->FLAGS & B::SVf_NOK);
+                if ( ($b_obj->FLAGS & B::SVf_IOK or  $b_obj->FLAGS & B::SVp_IOK
+                            or $b_obj->FLAGS & B::SVf_NOK or $b_obj->FLAGS & B::SVp_NOK
+                       ) and !($b_obj->FLAGS & B::SVf_POK )
+                );
 
         return _stringfy($value);
     }
@@ -277,7 +283,7 @@ sub _stringfy_single_quote {
         map {
             chr($_) =~ /[\x00-\x07\x0b\x0e-\x1f]/ ?
                 sprintf('\u%04x', $_) :
-            $_ <= 255 ?
+            $_ <= 127 ?
                 chr($_) :
             $_ <= 65535 ?
                 sprintf('\u%04x', $_) : sprintf('\u%04x', $_)
