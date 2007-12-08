@@ -5,7 +5,7 @@ use strict;
 
 my @properties;
 
-$JSON::PP5005::VERSION = '1.00';
+$JSON::PP5005::VERSION = '1.01';
 
 BEGIN {
     *JSON::PP::JSON_encode_ascii   = *_encode_ascii;
@@ -49,6 +49,7 @@ BEGIN {
     sub B::SVp_IOK () { 0x01000000; }
     sub B::SVp_NOK () { 0x02000000; }
 
+    $INC{'bytes.pm'} = 1; # dummy
 }
 
 

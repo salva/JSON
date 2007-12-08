@@ -11,7 +11,7 @@ use Carp ();
 use B ();
 #use Devel::Peek;
 
-$JSON::PP::VERSION = '2.01';
+$JSON::PP::VERSION = '2.0101';
 
 @JSON::PP::EXPORT = qw(encode_json decode_json from_json to_json);
 
@@ -51,6 +51,7 @@ BEGIN {
 
     # Perl version check, ascii() is enable?
     # Helper module may set @JSON::PP::_properties.
+
     if ($] >= 5.008) {
         require Encode;
         push @xs_compati_bit_properties, 'ascii', 'latin1';
@@ -745,6 +746,7 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
                 }
                 else{
                     if ($utf8 and $is_utf8) {
+                        use bytes;
                         if( hex(unpack('H*', $ch))  > 255 ) {
                             decode_error("malformed UTF-8 character in JSON string");
                         }

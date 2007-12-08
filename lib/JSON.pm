@@ -7,7 +7,7 @@ use base qw(Exporter);
 @JSON::EXPORT = qw(from_json to_json jsonToObj objToJson encode_json decode_json);
 
 BEGIN {
-    $JSON::VERSION = '1.99_01';
+    $JSON::VERSION = '1.99_02';
     $JSON::DEBUG   = 0 unless (defined $JSON::DEBUG);
 }
 

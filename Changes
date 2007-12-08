@@ -16,6 +16,14 @@ In this version, JSON was totally rewritten.
 
 ## JSON version 2.00
 
+1.99_02 Sun Dec  9 05:06:19 2007
+        [JSON::PP] (2.0101)
+	- decoding with utf8 was broken in Perl 5.10
+	    as the behaviour of unpack was changed.
+	- added a fake in JSON::PP5005 (bytes.pm)
+	- added the missing file JONS::PP::Boolean.pm
+
+
 1.99_01 Sat Dec  8 12:01:43 2007
 	[JSON]
 	- released as version 2.0

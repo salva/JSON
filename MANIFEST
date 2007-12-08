@@ -3,6 +3,7 @@ lib/JSON.pm
 lib/JSON/PP.pm
 lib/JSON/PP56.pm
 lib/JSON/PP5005.pm
+lib/JSON/PP/Boolean.pm
 Makefile.PL
 MANIFEST
 README
