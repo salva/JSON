@@ -2,211 +2,42 @@ Revision history for Perl extension JSON.
 
 ## TRANSITION PLAN ######################################################
 
-In the next large update version, JSON and JSONRPC modules are split.
+In this version, JSON was totally rewritten.
 
-  JSON::Parser and JSON::Converter are deleted from JSON dist.
-  JSON and JSON::PP in JSON dist.
-
-  JSON becomes wrapper to JSON::XS and/or JSON::PP.
-
-  JSONRPC* and Apache::JSONRPC are deleted from JSON dist.
-  JSONRPC::Client, JSONRPC::Server and JSONRPC::Procedure in JSON::RPC dist.
-
-  Modules in JSON::RPC dist supports JSONRPC protocol v1.1 and 1.0.
+  * JSON becomes a wrapper to JSON::XS or JSON::PP!
+  * objToJson() and jsonToObj() are obsoleted!
+  * $JSON::* variables are no longer available!
+  * JSON::Parser and JSON::Converter are deleted from the distribution!
+  * JSONRPC* and Apache::JSONRPC are deleted from the distribution!
+     Please check JSON::RPC (supports JSON-RPC protocol v1.1 and 1.0).
 
 ##########################################################################
 
-1.15  Wed Nov 14 14:52:31 2007
+
+## JSON version 2.00
+
+1.99_01 Sat Dec  8 12:01:43 2007
 	[JSON]
-	- modified a bug (rt#28434: UTF-8 handling severly broken)
-            but recommend to use JSON::PP instead of JSON (with JSON::Converter)
-            as JSON::Converter's utf8 handling is incomplete.
-	- fixed rt#29139 (unary boolean negation generates)
-            objToJson([!1])  => [""]
-            objToJson([!!1]) => ["1"]
-	- fixed doc (rt#21038: QuotApos documentation is flawed)
+	- released as version 2.0
+	   this module is incompatible to 1.xx, so check the document.
 
-        [JSON::PP]
-	- updated JSON::PP for compatible to JSON::XS 1.52
-              adding max_size, relaxed, allow_blessed, convert_blessed,
-                     filter_json_object, filter_json_single_key_object
-	- modified a JSON::PP bug (rt#29988 JSON::PP recursion depth bug)
-        - Now JSON::PP's max_depth default value is 512.
-	- Now JSON::PP mapping policy is compatible to JSON::XS
-	- JSON:PP's allow_tie is obsoleted.
+        [JSON::PP] (2.01 from 0.97)
+	- updated JSON::PP for compatible to JSON::XS 2.01
+	- renamed from_json and to_json to decode_json and encode_json
+	- added get_* to JSON::PP
+	- deleted property() from JSON::PP
+	- deleted strict() and added loose()
+	- deleted disable_UTF8() and self_encode()
+	- renamed singlequote to allow_singlequote
+	- renamed allow_bigint to allow_bignum
+	- max_depth and max_size round up their arguments.
+	- added indent_length and sort_by
 
 
-1.14  Thu May 10 15:32:18 2007
-	- added 'TRANSITION PLAN'
-	- updated JSON::PP
-	  (latin1 and decode_prefix are added for JSON::XS comatible)
+## JSON version 1.xx
 
-1.13  Sun May  6 14:03:31 2007
-	- fixed round-trip handling for Perl5.9.4
-	  (Thanks to andreas.koenig and Nicholas Clark)
-	- added overload operator 'eq', 'ne', '==' and '!='
-	    for JSON::NotString (JSON::Literal for JSON::PP) (rt#26923 by Ryan Morris)
-
-1.12  Thu May  3 18:32:28 2007
-	- fixed loose quoting bug in JSON::Parser. (Thanks to Allen Day and his patch)
-	- fixed round-trip problem (pointed by Marc Lehmann's JSON::XS)
-	      (However, only in the case of non autoconv mode)
-	- updated JSON::PP
-	    now can be used in Perl 5.8, 5.6, 5.005 (There is functional restriction).
-	    added allow_bigint (Thanks to Adam Sussman's patch)
-	    added self_encode, singlequote, allow_barekey
-
-1.11  Mon Apr 23 13:31:15 2007
-	- updated JSON::PP
-
-1.10  Wed Apr 18 15:49:00 2007
-	- added JSON::PP
-	- fixed typo in JSONRPC.pm (rt#25605 by CMANLEY)
-	- advanced the error handling of JSON::Parser
-        - added t/16-scalarobj.t, t/17-tied.t
-
-1.09  Wed Mar 28 06:40:56 2007
-	- fixed 14-utf8.t and Converter.pm for old Perl version(v5.6)
-
-1.08  Mon Mar 26 20:39:05 2007
-	- fixed rt#25727 replace utf8 characters with the appropriate escape sequences.
-	   14-utf8.t was effected by this change.
-	- fixed rt#25291 (and pasha sadri's report)
-           JSON::Converter can handle blessed scalar ref.
-	- fixed rt#25162 JSON::Converter can handle tied variable.
-	- fixed JSON::Converter::_valueToJson's hex bug pointed by Paul Seamons.
-
-1.07  Mon Jun  5 00:17:11 2006
-	- fixed treating octal numbers of JSON::Converter (was broken since 1.04)
-	   reported by Jose Alves de Castro and Rocco Caputo.
-	- added utf8::encode emulator (less than Perl5.8 ) but no test!
-	   suggested by philip.tellis[at]gmail.com
-
-1.06  no released
-	- modified JSON::Converter's %esc value
-
-1.05  Tue Feb 21 11:37:00 2006
-	- fixed the problem of calling utf8::encode in less than Perl 5.8
-           (rt#17755)
-	- added doc related to SingleQuote option
-
-1.04  Thu Feb 16 17:29:57 2006
-	- can handle exponential digit.
-	- added 'parse_json' and 'to_json' as the alias to 'jsonToObj' and 'objToJson'
-	- added UTF8 option
-	- fixed a bug when calling _getParamsForParser in jsonToObj()
-	- added 'SingleQuote' option
-
-1.03  Thu Dec 29 10:11:50 2005
-	- modified code typo (Thanks to Yann Kerherve)
-	- added the 'selfconvert' function to JSON::Converter and t/selfconvert.t.
-	  (thanks to Yann Kerherve'patch and suggestion)
-        - rewrite a few JSON::Converter codes more prrety (the speed decreases a little)
-	- modified JSON pod typos (Thanks to Annocpan users)
-
-1.02  Thu Nov 24 10:44:42 2005
-	- modified t/11-convblessed.t
-	- sortkey function was enhanced.
-	  (thanks to Brad Baxter)
-	- fixed a warning problem in JSON::Converter.
-
-1.01  Mon Nov 21 13:22:23 2005
-	- modified t/04-json_opt.t (rt #15128)
-	  (thanks to some testers and Peter (Stig) Edwards)
-	- added the 'key sort' function to JSON, JSON::Converter.
-	  (thanks to Adam Sussman for the patch)
-	  (Brad Baxter also sent the patch)
-	- added t/10-orderd.t
-	- auto convert object has been expanded to hex numbers
-	  (thanks to Adam Sussman for the patch)
-	- modified small bug in JSON.
-	  (thanks to Brad Baxter)
-	- added 'convert blessed object' function to JSON, JSON::Converter.
-	  (thanks to Jacob and Jay Buffington for some suggestions)
-	- added t/11-convblessed.t
-	- modified JSONRPC::Transport::HTTP (rt #15915)
-	  (thanks to IVAN)
-	- modified some bugs in _getParamsForParser & _getParamsForConverter
-	- indent tab => indent space (in modified files)
-
-1.00  Fri Sep 30 06:45:13 2005
-	! JSONRPC and JSONRPC::Transport::HTTP was changed largely.
-	  If you have used this module, please pay attention to it before using.
-
-	- improved _stringfy() in JSON::Converter to make more fast.
-	  (thanks to Alden DoRosario" <adorosario[at]chitika.com>)
-	- modified JSONRPC::Transport::HTTP totally.
-	   now JSONRPC::Transport::HTTP requires HTTP::Request & HTPP::Response.
-	- added Apache::JSONRPC and JSONRPC::Transport::HTTP::Apache.
-	- added doc of JSONRPC::Transport::HTTP::Daemon.
-	- modified find_method() in JSONRPC to set paths to service.
-	   and added t/rpc03-query2.t
-	- added JSONRPC::Transport::HTTP::Client.
-	   requires LWP::UserAgent.
-	- added unmapping option.
-	   added t/04-json_opt.t & modified t/02-base.t
-	- added barekey option and single quotation option.
-	   JSON::Parser supports to parse {foo => "bar"} or {foo => 'bar'}.
-
-
-0.991 Fri Sep  2 11:48:03 2005
-	- added 'query' optinos and 'paramName' for JSONRPC::Transport::HTTP::CGI
-	  (thanks to Rusty Phillips <rphillips[at]edats.com> suggestion)
-	- added MAX_CONTENT_LENGTH for JSONRPC::Transport::HTTP::CGI.
-	- added TODO
-	  (Rusty Phillips <rphillips[at]edats.com> suggestion)
-	  (Felipe Gasper <gasperfm[at]uc.edu> suggestion)
-	- added t/rpc02-query.t
-
-0.99  Sat Jul 23 20:04:24 2005
-	- added pretty-print function.
-	  (thanks to David Wheeler <david[at]kineticode.com>)
-	- made coderef execution optinal.
-	  (thanks to Tatsuhiko Miyagawa <miyagawa[at]bulknews.net> suggestion)
-	- now does not escape for '/'.
-	- added many informations to pod.
-
-0.981 Tue Jul 19 10:28:45 2005
-	- fixed a terrible bug of handling octal and hexadecimal formats.
-	  (thanks to Adam Sussman <adam.sussman[at]ticketmaster.com>)
-
-0.98  Mon Jul 18 09:34:16 2005
-	- fixed typo in JSON::Converter
-	  (thanks to Tatsuhiko Miyagawa <miyagawa[at]bulknews.net>)
-	- now objToJson( { foo => sub { "bar" } } ) returns {"foo":"bar"}
-	- now JSON::Parser can handle the octal and hexadecimal formats as number.
-	  (thanks to Adam Sussman <adam.sussman[at]ticketmaster.com>)
-
-0.97  Fri Jun 17 11:06:23 2005
-	- fixed escaped character handling in JSON::Parser.
-	  (thanks to Jeremy Muhlich <jmuhlich[at]bitflood.org>)
-
-0.96  Fri May 20 17:17:37 2005
-	- fixed pod docs (thanks to SHIMADA).
-	- added charset optoin in JSONRPC.
-
-0.95  Thu May 19 06:26:25 2005
-	- now JSON::Parser is ten times as fast as before.
-
-0.94  Thu May 19 06:26:25 2005
-	- added '\u' handling (JSON::Parser, JSON::Converter)
-
-0.93  Fri May 13 13:15:26 2005
-	- now JSON::Parser dosen't require Parse::RecDescent!
-	- modified JSON::Converter's quotemeta handling (thanks to SHIMADA).
-	- fixed pod docs.
-	- added t/05-esc.t
-
-0.92  Wed May 11 16:13:19 2005
-	- modified directory arrange in this distribution.
-	    (thanks to Mike Castle <dalgoda[at]ix.netcom.com>)
-	- added doc JSONRPC::Transport::HTTP requires CGI >= 2.92.
-	    (thanks to SHIMADA)
-	- fixed some bugs about AUTOCONVERT function.
-
-0.91  Wed Apr 13 16:27:49 2005
-	- added some tests
-	- added JSONRPC, JSONRPC::Transport::HTTP
+1.15  Wed Nov 14 14:52:31 2007
+	- 1.xx final version.
 
 0.09  Sat Apr  9 15:27:47 2005
 	- original version; created by h2xs 1.22 with options

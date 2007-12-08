@@ -5,11 +5,23 @@ use strict;
 
 my @properties;
 
-$JSON::PP56::VERSION = '0.13';
+$JSON::PP56::VERSION = '1.00';
 
 BEGIN {
     sub utf8::is_utf8 {
-        1; # It is considered that UTF8 flag on for Perl 5.6.
+        my $len =  length $_[0]; # char length
+        {
+            use bytes; #  byte length;
+            return $len != length $_[0]; # if !=, UTF8-flagged on.
+        }
+    }
+
+    sub utf8::upgrade {
+        ; # noop;
+    }
+
+    sub utf8::downgrade {
+        ; # noop;
     }
 
     sub utf8::encode (\$) { # UTF8 flag off
@@ -70,6 +82,10 @@ else {
             warn "latin1() is disable in Perl5.6x.";
             $_[0]->{latin1} = 0; $_[0];
         }
+
+        sub JSON::PP::get_ascii { 0; }
+
+        sub JSON::PP::get_latin1 { 0; }
     |;
 }
 
