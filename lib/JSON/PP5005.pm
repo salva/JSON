@@ -5,7 +5,7 @@ use strict;
 
 my @properties;
 
-$JSON::PP5005::VERSION = '1.01';
+$JSON::PP5005::VERSION = '1.02';
 
 BEGIN {
     *JSON::PP::JSON_encode_ascii   = *_encode_ascii;
@@ -22,10 +22,10 @@ BEGIN {
     sub utf8::downgrade {
     }
 
-    sub utf8::encode (\$) {
+    sub utf8::encode  {
     }
 
-    sub utf8::decode (\$) {
+    sub utf8::decode  {
     }
 
     sub JSON::PP::ascii {

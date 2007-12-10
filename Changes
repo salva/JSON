@@ -16,6 +16,14 @@ In this version, JSON was totally rewritten.
 
 ## JSON version 2.00
 
+1.99_04  Mon Dec 10 14:28:15 2007
+	[JSON]
+	- modified the tests and source for Perl 5.005
+
+	[JSON::PP] (2.0102)
+	- modified some prototypes in JSON::PP5005.
+
+
 1.99_03  Mon Dec 10 11:43:02 2007
 	[JSON]
 	- modified tests and document.

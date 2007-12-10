@@ -7,7 +7,7 @@ use base qw(Exporter);
 @JSON::EXPORT = qw(from_json to_json jsonToObj objToJson encode_json decode_json);
 
 BEGIN {
-    $JSON::VERSION = '1.99_03';
+    $JSON::VERSION = '1.99_04';
     $JSON::DEBUG   = 0 unless (defined $JSON::DEBUG);
 }
 
@@ -173,7 +173,7 @@ sub property {
                 $props{$name} = $value == 1 ? 0 : $value;
                 next;
             }
-            $props{$name} = $self->$method;
+            $props{$name} = $self->$method();
         }
         return \%props;
     }

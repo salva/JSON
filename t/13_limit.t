@@ -1,14 +1,13 @@
 # copied over from JSON::XS and modified to use JSON
 
-BEGIN { $| = 1; print "1..11\n"; }
+use strict;
+use Test::More;
+
+BEGIN { plan tests => 11 };
+
 BEGIN { $ENV{PERL_JSON_BACKEND} = 0; }
 
 use JSON;
-
-our $test;
-sub ok($;$) {
-   print $_[0] ? "" : "not ", "ok ", ++$test, "\n";
-}
 
 my $def = 512;
 

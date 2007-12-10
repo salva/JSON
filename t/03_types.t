@@ -1,15 +1,13 @@
 # copied over from JSON::XS and modified to use JSON
+use strict;
+use Test::More;
 
-BEGIN { $| = 1; print "1..76\n"; }
+BEGIN { plan tests => 76 };
 
 BEGIN { $ENV{PERL_JSON_BACKEND} = 0; }
 
 use JSON;
 
-our $test;
-sub ok($) {
-   print $_[0] ? "" : "not ", "ok ", ++$test, "\n";
-}
 
 ok (!defined JSON->new->allow_nonref (1)->decode ('null'));
 ok (JSON->new->allow_nonref (1)->decode ('true') == 1);
@@ -45,7 +43,7 @@ ok ('[null]'  eq encode_json [undef]);
 ok ('[true]'  eq encode_json [JSON::true]);
 ok ('[false]' eq encode_json [JSON::false]);
 
-for $v (1, 2, 3, 5, -1, -2, -3, -4, 100, 1000, 10000, -999, -88, -7, 7, 88, 999, -1e5, 1e6, 1e7, 1e8) {
+for my $v (1, 2, 3, 5, -1, -2, -3, -4, 100, 1000, 10000, -999, -88, -7, 7, 88, 999, -1e5, 1e6, 1e7, 1e8) {
    ok ($v == ((decode_json "[$v]")->[0]));
    ok ($v == ((decode_json encode_json [$v])->[0]));
 }

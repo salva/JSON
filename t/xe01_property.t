@@ -21,13 +21,13 @@ my $json = new JSON;
 
 for my $name (@simples) {
     my $method = 'get_' . $name;
-    ok(! $json->$method, $method . ' default');
+    ok(! $json->$method(), $method . ' default');
     $json->$name();
-    ok($json->$method, $method . ' set true');
+    ok($json->$method(), $method . ' set true');
     $json->$name(0);
-    ok(! $json->$method, $method . ' set false');
+    ok(! $json->$method(), $method . ' set false');
     $json->$name();
-    ok($json->$method, $method . ' set true again');
+    ok($json->$method(), $method . ' set true again');
 }
 
 

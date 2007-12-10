@@ -6,7 +6,8 @@
 # copied over from JSON::XS and modified to use JSON
 
 use strict;
-no warnings;
+#no warnings;
+local $^W = undef;
 use Test::More;
 BEGIN { plan tests => 39 };
 BEGIN { $ENV{PERL_JSON_BACKEND} = 0; }
