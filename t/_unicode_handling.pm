@@ -20,6 +20,9 @@ package _unicode_handling;
             eval q| require Unicode::String |;
             $JSON::can_handle_UTF16_and_utf8 = 0 if ($@);
         }
+        elsif ($] < 5.008003) {
+            $JSON::can_handle_UTF16_and_utf8 = 0;
+        }
 
     }
 

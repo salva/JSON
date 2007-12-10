@@ -7,7 +7,7 @@ use base qw(Exporter);
 @JSON::EXPORT = qw(from_json to_json jsonToObj objToJson encode_json decode_json);
 
 BEGIN {
-    $JSON::VERSION = '1.99_02';
+    $JSON::VERSION = '1.99_03';
     $JSON::DEBUG   = 0 unless (defined $JSON::DEBUG);
 }
 
@@ -584,6 +584,11 @@ Even though there is a limitation, this feature is available since Perl 5.6.
 JSON::XS requires Perl 5.8.2, so in older versions C<JSON> sholud use JSON::PP
 as the backend. For correct unicode handling in 5.6, JSON::PP requires
  L<Unicode::String>. And in 5.005, unicode handling is not available.
+
+JSON::XS works correctly in 5.8.8 or later.
+
+From 5.8.0 to 5.8.2, JSON::PP decode with utf8 is broken, because of a Perl side problem!
+
 
 See to L<JSON::XS/FEATURES> and L<JSON::PP/FEATURES>,
 and also to L<JSON::XS/A FEW NOTES ON UNICODE AND PERL>.

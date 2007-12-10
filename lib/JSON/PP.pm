@@ -11,7 +11,7 @@ use Carp ();
 use B ();
 #use Devel::Peek;
 
-$JSON::PP::VERSION = '2.0101';
+$JSON::PP::VERSION = '2.0102';
 
 @JSON::PP::EXPORT = qw(encode_json decode_json from_json to_json);
 
@@ -622,14 +622,14 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
             decode_error("malformed text data.");
         }
 
-        $is_utf8 = 1 if (utf8::is_utf8($text));
-
-        $len  = length $text;
-
         my $idx = $self->{PROPS};
 
         ($utf8, $relaxed, $loose, $allow_bigint, $allow_barekey, undef, $singlequote)
             = @{$idx}[P_UTF8, P_RELAXED, P_LOOSE .. P_ALLOW_SINGLEQUOTE];
+
+        $is_utf8 = 1 if (utf8::is_utf8($text));
+
+        $len  = length $text;
 
         ($max_depth, $max_size, $cb_object, $cb_sk_object, $F_HOOK)
              = @{$self}{qw/max_depth  max_size cb_object cb_sk_object F_HOOK/};
@@ -652,7 +652,7 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
             }
         }
 
-        # Currently no effective
+        # Currently no effect
         my @octets = unpack('C4', $text);
         $encoding =   ( $octets[0] and  $octets[1]) ? 'UTF-8'
                     : (!$octets[0] and  $octets[1]) ? 'UTF-16BE'
@@ -711,12 +711,7 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
                         decode_error("missing low surrogate character in surrogate pair");
                     }
 
-#                    if($disable_UTF8) {
-#                        utf8::encode($s) if (utf8::is_utf8($s));
-#                    }
-#                    else {
-                        utf8::decode($s);
-#                    }
+                    utf8::decode($s);
 
                     return $s;
                 }
@@ -739,21 +734,22 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
                     }
                     else{
                         unless ($loose) {
-                            decode_error('invalid escaped character');
+                            decode_error('illegal backslash escape sequence in string');
                         }
                         $s .= $ch;
                     }
                 }
                 else{
-                    if ($utf8 and $is_utf8) {
+                    if ($utf8) {
                         use bytes;
                         if( hex(unpack('H*', $ch))  > 255 ) {
                             decode_error("malformed UTF-8 character in JSON string");
                         }
                     }
-                    elsif (!$loose) {
-                        if ($ch =~ /[\x00-\x1f\x22\x5c]/)  { # / ok
-                            decode_error('invalid character');
+
+                    if (!$loose) {
+                        if ($ch =~ /[\x00-\x1f\x22\x5c]/)  { # '/' ok
+                            decode_error('invalid character encountered while parsing JSON string');
                         }
                     }
 
@@ -762,7 +758,7 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
             }
         }
 
-        decode_error("Bad string (unexpected end)");
+        decode_error("unexpected end of string while parsing JSON string");
     }
 
 

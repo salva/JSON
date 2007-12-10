@@ -16,7 +16,21 @@ In this version, JSON was totally rewritten.
 
 ## JSON version 2.00
 
-1.99_02 Sun Dec  9 05:06:19 2007
+1.99_03  Mon Dec 10 11:43:02 2007
+	[JSON]
+	- modified tests and document.
+	   in Perl5.8.2 or earlier, decoding with utf8 is broken because of
+           the Perl side problem. (substr() with UTF-8 flagged string is broken.)
+	- modified Makefile.PL for Perl 5.005.
+	   in the version, 'require JSON' is fail.... why?
+
+	[JSON::PP] (2.0102)
+	- modified string decode function.
+	- enhanced error messages for compatibility to JSON::XS.
+	- enhanced utf8::decode emulator and unpack emulator in JSON::PP56.
+
+
+1.99_02  Sun Dec  9 05:06:19 2007
         [JSON::PP] (2.0101)
 	- decoding with utf8 was broken in Perl 5.10
 	    as the behaviour of unpack was changed.
@@ -24,7 +38,7 @@ In this version, JSON was totally rewritten.
 	- added the missing file JONS::PP::Boolean.pm
 
 
-1.99_01 Sat Dec  8 12:01:43 2007
+1.99_01  Sat Dec  8 12:01:43 2007
 	[JSON]
 	- released as version 2.0
 	   this module is incompatible to 1.xx, so check the document.

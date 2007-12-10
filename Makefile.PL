@@ -6,10 +6,13 @@ use lib qw( ./lib );
 
 eval q| require JSON |;
 
-die "lib/JSON.pm is not found. Check your files." if ($@);
+# In Perl 5.005 the below code is broken, but I have no idea as I don't have 5.005.
 
-my $version     = JSON->VERSION;
-my $req_xs_ver  = JSON->require_xs_version;
+#die "lib/JSON.pm is not found. Check your files." if ($@);
+warn $@ if ($@);
+
+my $version     = '1.99_03'; #JSON->VERSION;
+my $req_xs_ver  = '2.01'; #JSON->require_xs_version;
 my $has_xs      = 0;
 my $message;
 

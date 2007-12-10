@@ -5,7 +5,7 @@ use strict;
 
 my @properties;
 
-$JSON::PP56::VERSION = '1.00';
+$JSON::PP56::VERSION = '1.01';
 
 BEGIN {
     sub utf8::is_utf8 {
@@ -29,7 +29,9 @@ BEGIN {
     }
 
     sub utf8::decode (\$) { # UTF8 flag on
-        ${$_[0]} = pack("U*", unpack_emu(${$_[0]}));
+        if ( _is_valid_utf8(${$_[0]}) ) {
+            ${$_[0]} = pack("U*", unpack("U*", ${$_[0]}));
+        }
     }
 }
 
@@ -119,8 +121,12 @@ sub _encode_latin1 {
 
 
 sub unpack_emu { # for Perl 5.6 unpack warnings
+    return _is_valid_utf8($_[0]) ? unpack('U*', $_[0]) : unpack('C*', $_[0]);
+}
+
+
+sub _is_valid_utf8 {
     my $str = $_[0];
-    my @ret;
     my $is_utf8;
 
     while ($str =~ /(?:
@@ -140,27 +146,17 @@ sub unpack_emu { # for Perl 5.6 unpack warnings
     {
         if (defined $1) {
             $is_utf8 = 1 if (!defined $is_utf8);
-            if ($is_utf8) {
-                push @ret, unpack('U', $1);
-            }
-            else {
-                push @ret, unpack('C*', $1);
-            }
         }
         else {
             $is_utf8 = 0 if (!defined $is_utf8);
-
             if ($is_utf8) { # eventually, not utf8
-                return unpack('C*', $str);
+                return;
             }
-
-            push @ret, unpack('C', $2);
         }
     }
 
-    return @ret;
+    return $is_utf8;
 }
-
 
 
 sub _noop_encode_ascii {
