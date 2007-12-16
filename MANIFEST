@@ -37,6 +37,8 @@ t/e04_sortby.t
 t/e05_esc_slash.t
 t/e06_allow_barekey.t
 t/e07_allow_singlequote.t
+t/e08_decode.t
+t/e09_encode.t
 
 t/x00_load.t
 t/x02_error.t
@@ -46,5 +48,6 @@ t/xe01_property.t
 t/xe02_bool.t
 t/xe03_bool2.t
 t/xe04support_by_pp.t
+t/xe08_decode.t
 
 META.yml                                 Module meta-data (added by MakeMaker)

@@ -7,7 +7,7 @@ use base qw(Exporter);
 @JSON::EXPORT = qw(from_json to_json jsonToObj objToJson encode_json decode_json);
 
 BEGIN {
-    $JSON::VERSION = '1.99_04';
+    $JSON::VERSION = '1.99_05';
     $JSON::DEBUG   = 0 unless (defined $JSON::DEBUG);
 }
 
@@ -456,10 +456,9 @@ JSON - JSON (JavaScript Object Notation) encoder/decoder
 =head1 SYNOPSIS
 
  use JSON; # imports encode_json, decode_json, to_json and from_json.
-
- # simple interface
- $utf8_encoded_json_text = encode_json $perl_hash_or_arrayref;
- $perl_hash_or_arrayref  = decode_json $utf8_encoded_json_text;
+ 
+ $json_text   = to_json($perl_scalar);
+ $perl_scalar = from_json($json_text);
  
  # option-acceptable
  $json_text   = to_json($perl_scalar, {ascii => 1});
@@ -473,10 +472,14 @@ JSON - JSON (JavaScript Object Notation) encoder/decoder
  
  # pretty-printing
  $json_text = $json->pretty->encode($perl_scalar);
+ 
+ # simple interface
+ $utf8_encoded_json_text = encode_json $perl_hash_or_arrayref;
+ $perl_hash_or_arrayref  = decode_json $utf8_encoded_json_text;
 
 =head1 VERSION
 
-    2.00 (1.99_01)
+    2.00 (1.99_05)
 
 
 =head1 DESCRIPTION
@@ -497,7 +500,7 @@ Module name : C<JSON>
 Format type : JSON
 
 JSON (JavaScript Object Notation) is a simple data format.
-See to L<http://www.json.org/> and L<RFC4627|http://www.ietf.org/rfc/rfc4627.txt>.
+See to L<http://www.json.org/> and C<RFC4627>(L<http://www.ietf.org/rfc/rfc4627.txt>).
 
 This module converts Perl data structures to JSON and vice versa using either
 L<JSON::XS> or L<JSON::PP>.
@@ -581,17 +584,14 @@ how and when it does so.
 
 Even though there is a limitation, this feature is available since Perl 5.6.
 
-JSON::XS requires Perl 5.8.2, so in older versions C<JSON> sholud use JSON::PP
-as the backend. For correct unicode handling in 5.6, JSON::PP requires
- L<Unicode::String>. And in 5.005, unicode handling is not available.
+JSON::XS requires Perl 5.8.2 (but works correctly in 5.8.8 or later), so in older versions
+C<JSON> sholud call JSON::PP as the backend which can be used since Perl 5.005.
 
-JSON::XS works correctly in 5.8.8 or later.
+With Perl 5.8.x JSON::PP works, but from 5.8.0 to 5.8.2, because of a Perl side problem,
+JSON::PP works slower in the versions. And in 5.005, the Unicode handling is not available.
+See to L<JSON::PP/UNICODE HANDLING ON PERLS> for more information.
 
-From 5.8.0 to 5.8.2, JSON::PP decode with utf8 is broken, because of a Perl side problem!
-
-
-See to L<JSON::XS/FEATURES> and L<JSON::PP/FEATURES>,
-and also to L<JSON::XS/A FEW NOTES ON UNICODE AND PERL>.
+See also to L<JSON::XS/A FEW NOTES ON UNICODE AND PERL>.
 
 
 =item * round-trip integrity
@@ -1758,7 +1758,7 @@ Most of the document is copied and modified from JSON::XS doc.
 
 L<JSON::XS>, L<JSON::PP>
 
-L<RFC4627|http://www.ietf.org/rfc/rfc4627.txt>
+C<RFC4627>(L<http://www.ietf.org/rfc/rfc4627.txt>)
 
 =head1 AUTHOR
 

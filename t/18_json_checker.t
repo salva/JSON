@@ -27,6 +27,7 @@ for (;;) {
    my $name = <DATA>;
    if (my $perl = eval { $json->decode ($test) }) {
       ok ($name =~ /^pass/, $name);
+#print $json->encode ($perl), "\n";
       is ($json->encode ($json->decode ($json->encode ($perl))), $json->encode ($perl));
    } else {
       ok ($name =~ /^fail/, "$name ($@)");

@@ -21,16 +21,9 @@ eval { JSON->new->encode ([\2]) }; ok $@ =~ /cannot encode reference/;
 eval { JSON->new->encode ([\{}]) }; ok $@ =~ /cannot encode reference/;
 eval { JSON->new->encode ([\[]]) }; ok $@ =~ /cannot encode reference/;
 eval { JSON->new->encode ([\\1]) }; ok $@ =~ /cannot encode reference/;
-
-SKIP: {
-    skip "UNICODE handling is disabale.", 3 unless $JSON::can_handle_UTF16_and_utf8;
-
 eval { JSON->new->allow_nonref (1)->decode ('"\u1234\udc00"') }; ok $@ =~ /missing high /;
 eval { JSON->new->allow_nonref->decode ('"\ud800"') }; ok $@ =~ /missing low /;
 eval { JSON->new->allow_nonref (1)->decode ('"\ud800\u1234"') }; ok $@ =~ /surrogate pair /;
-
-}
-
 eval { JSON->new->decode ('null') }; ok $@ =~ /allow_nonref/;
 eval { JSON->new->allow_nonref (1)->decode ('+0') }; ok $@ =~ /malformed/;
 eval { JSON->new->allow_nonref->decode ('.2') }; ok $@ =~ /malformed/;

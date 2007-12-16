@@ -15,10 +15,9 @@ NAME
 
 SYNOPSIS
      use JSON; # imports encode_json, decode_json, to_json and from_json.
-
-     # simple interface
-     $utf8_encoded_json_text = encode_json $perl_hash_or_arrayref;
-     $perl_hash_or_arrayref  = decode_json $utf8_encoded_json_text;
+ 
+     $json_text   = to_json($perl_scalar);
+     $perl_scalar = from_json($json_text);
  
      # option-acceptable
      $json_text   = to_json($perl_scalar, {ascii => 1});
@@ -32,9 +31,13 @@ SYNOPSIS
  
      # pretty-printing
      $json_text = $json->pretty->encode($perl_scalar);
+ 
+     # simple interface
+     $utf8_encoded_json_text = encode_json $perl_hash_or_arrayref;
+     $perl_hash_or_arrayref  = decode_json $utf8_encoded_json_text;
 
 VERSION
-        2.00 (1.99_01)
+        2.00 (1.99_05)
 
 DESCRIPTION
      ************************** CAUTION ********************************
@@ -53,7 +56,8 @@ DESCRIPTION
     Format type : JSON
 
     JSON (JavaScript Object Notation) is a simple data format. See to
-    <http://www.json.org/> and RFC4627.
+    <http://www.json.org/> and
+    "RFC4627"(<http://www.ietf.org/rfc/rfc4627.txt>).
 
     This module converts Perl data structures to JSON and vice versa using
     either JSON::XS or JSON::PP.
@@ -81,7 +85,7 @@ DESCRIPTION
      my $json = JSON->new; # XS or PP?
      $json->{stash} = 'this is xs object'; # this code may raise an error!
 
-    To check the backend module, there are some methods - "module", "is_pp"
+    To check the backend module, there are some methods - "backend", "is_pp"
     and "is_xs".
 
       JSON->backend; # 'JSON::XS' or 'JSON::PP'
@@ -124,8 +128,19 @@ DESCRIPTION
         This module (i.e. backend modules) knows how to handle Unicode, and
         even documents how and when it does so.
 
-        See to "FEATURES" in JSON::XS and "FEATURES" in JSON::PP, and also
-        to "A FEW NOTES ON UNICODE AND PERL" in JSON::XS.
+        Even though there is a limitation, this feature is available since
+        Perl 5.6.
+
+        JSON::XS requires Perl 5.8.2 (but works correctly in 5.8.8 or
+        later), so in older versions "JSON" sholud call JSON::PP as the
+        backend which can be used since Perl 5.005.
+
+        With Perl 5.8.x JSON::PP works, but from 5.8.0 to 5.8.2, because of
+        a Perl side problem, JSON::PP works slower in the versions. And in
+        5.005, the Unicode handling is not available. See to "UNICODE
+        HANDLING ON PERLS" in JSON::PP for more information.
+
+        See also to "A FEW NOTES ON UNICODE AND PERL" in JSON::XS.
 
     * round-trip integrity
         When you serialise a perl data structure using only datatypes
@@ -164,8 +179,8 @@ INCOMPATIBLE CHANGES TO OLD VERSION
 
     jsonToObj and objToJson are obsoleted.
         Non Perl-style name "jsonToObj" and "objToJson" are obsoleted (but
-        no yet deleted from the source). If you use these functions in your
-        code, please replace them with "decode_json" and "encode_json".
+        not yet deleted from the source). If you use these functions in your
+        code, please replace them with "from_json" and "to_json".
 
     Global variables are no longer available.
         "JSON" class variables - $JSON::AUTOCONVERT, $JSON::BareKey, etc...
@@ -256,8 +271,8 @@ FUNCTIONAL INTERFACE
 
     $is_boolean = JSON::is_bool($scalar)
         Returns true if the passed scalar represents either JSON::true or
-        JSON::false, two constants that act like 1 and 0, respectively and
-        are used to represent JSON "true" and "false" values in Perl.
+        JSON::false, two constants that act like 1 and 0 respectively and
+        are also used to represent JSON "true" and "false" in Perl strings.
 
         See MAPPING, below, for more information on how JSON values are
         mapped to Perl.
@@ -763,8 +778,8 @@ JSON::PP SUPPORT METHODS
        $json->allow_nonref->escape_slash->encode("/");
 
        # functional interfaces too.
-       print encode_json(["/"], {escape_slash => 1});
-       print decode_json('["foo"]', {utf8 => 1});
+       print to_json(["/"], {escape_slash => 1});
+       print from_json('["foo"]', {utf8 => 1});
 
     If you do not want to all functions but "-support_by_pp", use
     "-no_export".
@@ -772,14 +787,8 @@ JSON::PP SUPPORT METHODS
        use JSON -support_by_pp, -no_export;
        # functional interfaces are not exported.
 
-    $json = $json->self_encode([$enable])
-        This feature is for the old "JSON" (v1.xx) compatibility. It may be
-        obsoleted.
-
-        See to "JSON::PP OWN METHODS" in JSON::PP.
-
     $json = $json->allow_singlequote([$enable])
-        If $enable is true (or missing), then "decode" will accept JSON
+        If $enable is true (or missing), then "decode" will accept any JSON
         strings quoted by single quotations that are invalid JSON format.
 
             $json->allow_singlequote->decode({"foo":'bar'});
@@ -841,7 +850,7 @@ JSON::PP SUPPORT METHODS
            sub JSON::PP::own_sort { $JSON::PP::a cmp $JSON::PP::b }
 
         As the sorting routine runs in the JSON::PP scope, the given
-        subroutine name and the special variables $a, $b will begin
+        subroutine name and the special variables $a, $b will begin with
         'JSON::PP::'.
 
         If $integer is set, then the effect is same as "canonical" on.
@@ -849,8 +858,8 @@ JSON::PP SUPPORT METHODS
         See to "JSON::PP OWN METHODS" in JSON::PP.
 
 MAPPING
-    This section is copied and modified from JSON::XS. JSON::XS and JSON::PP
-    mapping mechanisms are almost equivalent.
+    This section is copied from JSON::XS and modified to "JSON". JSON::XS
+    and JSON::PP mapping mechanisms are almost equivalent.
 
     See to "MAPPING" in JSON::XS.
 
@@ -908,8 +917,10 @@ MAPPING
 
            ok(JSON::true eq 'true');
            ok(JSON::true eq  '1');
+           ok(JSON::true == 1);
 
-        "JSON" will install these missing overloading features to JSON::XS.
+        "JSON" will install these missing overloading features to the
+        backend modules.
 
     null
         A JSON null atom becomes "undef" in Perl.
@@ -1000,14 +1011,14 @@ TIPS
         use JSON -support_by_pp;
 
     Exported jsonToObj (simple)
-          decode_json($json_text);
+          from_json($json_text);
 
     Exported objToJson (simple)
-          encode_json($perl_scalar);
+          to_json($perl_scalar);
 
     Exported jsonToObj (advanced)
           $flags = {allow_barekey => 1, allow_singlequote => 1};
-          decode_json($json_text, $flags);
+          from_json($json_text, $flags);
 
         equivalent to:
 
@@ -1017,7 +1028,7 @@ TIPS
 
     Exported objToJson (advanced)
           $flags = {allow_blessed => 1, convert_bleesed => 1};
-          encode_json($perl_scalar, $flags);
+          to_json($perl_scalar, $flags);
 
         equivalent to:
 
@@ -1044,12 +1055,15 @@ TIPS
           $json->allow_singlequote->decode($json_text)
 
     $JSON::SingleQuote
-        Disable. "JSON" makes such a invalid JSON string no longer.
+        Disable. "JSON" does not make such a invalid JSON string any longer.
 
     $JSON::KeySort
           $json->canonical->encode($perl_scalar)
 
         This is the ascii sort.
+
+        If you want to use with your own sort routine, check the "sort_by"
+        method.
 
         (Only with JSON::PP, even if "-support_by_pp" is used currently.)
 
@@ -1121,7 +1135,7 @@ SEE ALSO
 
     JSON::XS, JSON::PP
 
-    RFC4627
+    "RFC4627"(<http://www.ietf.org/rfc/rfc4627.txt>)
 
 AUTHOR
     Makamaka Hannyaharamitu, <makamaka[at]cpan.org>

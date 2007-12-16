@@ -11,7 +11,7 @@ use Carp ();
 use B ();
 #use Devel::Peek;
 
-$JSON::PP::VERSION = '2.0102';
+$JSON::PP::VERSION = '2.0103';
 
 @JSON::PP::EXPORT = qw(encode_json decode_json from_json to_json);
 
@@ -53,14 +53,17 @@ BEGIN {
     # Helper module may set @JSON::PP::_properties.
 
     if ($] >= 5.008) {
-        require Encode;
         push @xs_compati_bit_properties, 'ascii', 'latin1';
 
-        *utf8::is_utf8 = *Encode::is_utf8 if ($] == 5.008);
+        if ($] == 5.008) {
+           require Encode;
+           *utf8::is_utf8 = *Encode::is_utf8;
+        }
 
-        *JSON_encode_ascii   = *_encode_ascii;
-        *JSON_encode_latin1  = *_encode_latin1;
-        *JSON_decode_unicode = *_decode_unicode;
+        *JSON_PP_encode_ascii      = *_encode_ascii;
+        *JSON_PP_encode_latin1     = *_encode_latin1;
+        *JSON_PP_decode_surrogates = *_decode_surrogates;
+        *JSON_PP_decode_unicode    = *_decode_unicode;
     }
     else {
         my $helper = $] >= 5.006 ? 'JSON::PP56' : 'JSON::PP5005';
@@ -90,6 +93,18 @@ BEGIN {
                 \$_[0]->{PROPS}->[$flag_name] ? 1 : '';
             }
         /;
+    }
+
+    if ($] >= 5.008 and $] < 5.008003) { # join() in 5.8.0 - 5.8.2 is broken.
+        *CORE::GLOBAL::join = sub ($@) {
+            return '' if (@_ < 2);
+            my $j   = shift;
+            my $str = shift;
+            for (@_) {
+               $str .= $j . $_;
+            }
+            return $str;
+        };
     }
 
 }
@@ -413,7 +428,6 @@ sub allow_bigint {
         return 'null' if(!defined $value);
 
         my $b_obj = B::svref_2object(\$value);  # for round trip problem
-        
         my $flags = $b_obj->FLAGS;
 
         return $value # as is 
@@ -477,11 +491,11 @@ sub allow_bigint {
         $arg =~ s/([\x00-\x08\x0b\x0e-\x1f])/'\\u00' . unpack('H2', $1)/eg;
 
         if ($ascii) {
-            $arg = JSON_encode_ascii($arg);
+            $arg = JSON_PP_encode_ascii($arg);
         }
 
         if ($latin1) {
-            $arg = JSON_encode_latin1($arg);
+            $arg = JSON_PP_encode_latin1($arg);
         }
 
         if ($utf8) {
@@ -531,16 +545,13 @@ sub allow_bigint {
 } # Convert
 
 
-
 sub _encode_ascii {
     join('',
         map {
             $_ <= 127 ?
                 chr($_) :
             $_ <= 65535 ?
-                sprintf('\u%04x', $_) :
-                join("", map { '\u' . $_ }
-                        unpack("H4H4", Encode::encode('UTF-16BE', pack("U", $_))));
+                sprintf('\u%04x', $_) : sprintf('\u%x\u%x', _encode_surrogates($_));
         } unpack('U*', $_[0])
     );
 }
@@ -552,24 +563,37 @@ sub _encode_latin1 {
             $_ <= 255 ?
                 chr($_) :
             $_ <= 65535 ?
-                sprintf('\u%04x', $_) :
-                join("", map { '\u' . $_ }
-                        unpack("H4H4", Encode::encode('UTF-16BE', pack("U", $_))));
+                sprintf('\u%04x', $_) : sprintf('\u%x\u%x', _encode_surrogates($_));
         } unpack('U*', $_[0])
     );
 }
 
+
+sub _encode_surrogates { # from perlunicode
+    my $uni = $_[0] - 0x10000;
+    my $hi  = $uni / 0x400 + 0xD800;
+    my $lo  = $uni % 0x400 + 0xDC00;
+    return ($hi, $lo);
+}
 
 
 #
 # JSON => Perl
 #
 
-# from Adam Sussman
-use Config;
-my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
-#my $max_intsize = length(2 ** ($Config{intsize} * 8)) - 1;
+my $max_intsize;
 
+BEGIN {
+    my $checkint = 1111;
+    for my $d (5..64) {
+        $checkint .= 1;
+        my $int   = eval qq| $checkint |;
+        if ($int =~ /[eE]/) {
+            $max_intsize = $d - 1;
+            last;
+        }
+    }
+}
 
 { # PARSE 
 
@@ -695,7 +719,7 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
 
     sub string {
         my ($i,$s,$t,$u);
-        my @utf16;
+        my $utf16;
 
         $s = ''; # basically UTF8 flag on
 
@@ -707,11 +731,11 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
                 if((!$singlequote and $ch eq '"') or ($singlequote and $ch eq $boundChar)){
                     next_chr();
 
-                    if (@utf16) {
+                    if ($utf16) {
                         decode_error("missing low surrogate character in surrogate pair");
                     }
 
-                    utf8::decode($s);
+                    utf8::decode($s) if($is_utf8);
 
                     return $s;
                 }
@@ -729,7 +753,32 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
                             $u .= $ch;
                         }
 
-                        $s .= JSON_decode_unicode($u, \@utf16) || next;
+                        # U+D800 - U+DBFF
+                        if ($u =~ /^[dD][89abAB][0-9a-fA-F]{2}/) { # UTF-16 high surrogate?
+                            $utf16 = $u;
+                        }
+                        # U+DC00 - U+DFFF
+                        elsif ($u =~ /^[dD][c-fC-F][0-9a-fA-F]{2}/) { # UTF-16 low surrogate?
+                            unless (defined $utf16) {
+                                decode_error("missing high surrogate character in surrogate pair");
+                            }
+                            $is_utf8 = 1;
+                            $s .= JSON_PP_decode_surrogates($utf16, $u) || next;
+                            $utf16 = undef;
+                        }
+                        else {
+                            if (defined $utf16) {
+                                decode_error("surrogate pair expected");
+                            }
+
+                            if ((my $hex = hex( $u )) > 255) {
+                                $is_utf8 = 1;
+                                $s .= JSON_PP_decode_unicode($u) || next;
+                            }
+                            else {
+                                $s .= chr $hex;
+                            }
+                        }
 
                     }
                     else{
@@ -1111,34 +1160,14 @@ my $max_intsize = length(((1 << (8 * $Config{intsize} - 2))-1)*2 + 1) - 1;
 } # PARSE
 
 
+sub _decode_surrogates { # from perlunicode
+    my $uni = 0x10000 + (hex($_[0]) - 0xD800) * 0x400 + (hex($_[1]) - 0xDC00);
+    return pack('U*', $uni);
+}
+
+
 sub _decode_unicode {
-    my $u     = $_[0];
-    my $utf16 = $_[1];
-
-    # U+10000 - U+10FFFF
-
-    # U+D800 - U+DBFF
-    if ($u =~ /^[dD][89abAB][0-9a-fA-F]{2}/) { # UTF-16 high surrogate?
-        push @$utf16, $u;
-    }
-    # U+DC00 - U+DFFF
-    elsif ($u =~ /^[dD][c-fC-F][0-9a-fA-F]{2}/) { # UTF-16 low surrogate?
-        unless (scalar(@$utf16)) {
-            decode_error("missing high surrogate character in surrogate pair");
-        }
-        my $str = pack('H4H4', @$utf16, $u);
-        @$utf16 = ();
-        return Encode::decode('UTF-16BE', $str); # UTF-8 flag on
-    }
-    else {
-        if (scalar(@$utf16)) {
-            decode_error("surrogate pair expected");
-        }
-
-        return chr(hex($u));
-    }
-
-    return;
+    return pack("U", hex shift);
 }
 
 
@@ -1238,14 +1267,7 @@ JSON::PP is a pure-Perl module and has compatibility to JSON::XS.
 
 This module knows how to handle Unicode (depending on Perl version).
 
-See to L<JSON::XS/A FEW NOTES ON UNICODE AND PERL> and
-L<JSON::XS/OBJECT-ORIENTED INTERFACE>.
-
-In Perl 5.8.x, the feature is available.
-
-In 5.6.x, Unicode handling requires L<Unicode::String> module.
-
-Perl 5.005_xx, Unicode handling is disable currenlty.
+See to L<JSON::XS/A FEW NOTES ON UNICODE AND PERL> and L<UNICODE HANDLING ON PERLS>.
 
 
 =item * round-trip integrity
@@ -1892,7 +1914,70 @@ If $integer is set, then the effect is same as C<canonical> on.
 
 =head1 MAPPING
 
-See to L<JSON/MAPPING>.
+See to L<JSON::XS/MAPPING>.
+
+
+=head1 UNICODE HANDLING ON PERLS
+
+If you do not know about Unicode on Perl well,
+please check L<JSON::XS/A FEW NOTES ON UNICODE AND PERL>.
+
+=head2 Perl 5.8 and later
+
+Perl can handle Unicode and the JSON::PP de/encode methods also work properly.
+
+    $json->allow_nonref->encode(chr hex 3042);
+    $json->allow_nonref->encode(chr hex 12345);
+
+Reuturns C<"\u3042"> and C<"\ud808\udf45"> respectively.
+
+    $json->allow_nonref->decode('"\u3042"');
+    $json->allow_nonref->decode('"\ud808\udf45"');
+
+Returns UTF-8 encoded strings with UTF8 flag, regarded as C<U+3042> and C<U+12345>.
+
+Note that the versions from Perl 5.8.0 to 5.8.2, Perl builtine C<join> was broken,
+so JSON::PP wraps the C<join> with a subroutine. Thus JSON::PP works slow in the versions.
+
+
+=head2 Perl 5.6
+
+Perl can handle Unicode and the JSON::PP de/encode methods also work.
+
+=head2 Perl 5.005
+
+Perl 5.005 is a byte sementics world -- all strings are sequences of bytes.
+That means the unicode handling is not available.
+
+In encoding,
+
+    $json->allow_nonref->encode(chr hex 3042);  # hex 3042 is 12354.
+    $json->allow_nonref->encode(chr hex 12345); # hex 12345 is 74565.
+
+Returns C<B> and C<E>, as C<chr> takes a value more than 255, it treats
+as C<$value % 256>, so the above codes are equivalent to :
+
+    $json->allow_nonref->encode(chr 66);
+    $json->allow_nonref->encode(chr 69);
+
+In decoding,
+
+    $json->decode('"\u00e3\u0081\u0082"');
+
+The returned is a byte sequence C<0xE3 0x81 0x82> for UTF-8 encoded
+japanese character (C<HIRAGANA LETTER A>).
+And if it is represented in Unicode code point, C<U+3042>.
+
+Next, 
+
+    $json->decode('"\u3042"');
+
+We ordinary expect the returned value is a Unicode character C<U+3042>.
+But here is 5.005 world. This is C<0xE3 0x81 0x82>.
+
+    $json->decode('"\ud808\udf45"');
+
+This is not a character C<U+12345> but bytes - C<0xf0 0x92 0x8d 0x85>.
 
 
 =head1 TODO
@@ -1916,7 +2001,7 @@ Most of the document are copied and modified from JSON::XS doc.
 
 L<JSON::XS>
 
-L<RFC4627|http://tools.ietf.org/rfc/rfc4627.txt>
+L<RFC4627|http://www.ietf.org/rfc/rfc4627.txt>
 
 =head1 AUTHOR
 

@@ -16,6 +16,22 @@ In this version, JSON was totally rewritten.
 
 ## JSON version 2.00
 
+
+1.99_05  Fri Dec 14 18:30:43 2007
+	[JSON]
+	- added a description about the Unicode handling to document.
+
+	[JSON::PP] (2.0103)
+	- Now the JSON::PP56 unicode handling does not require Unicode::String.
+	- Now JSON::PP5005 can de/enocde properly within the Perl 5.005 world.
+	- decode() always utf8::decode()ed to strings.
+	- decode() returned a big integer as string though the integer is
+          smaller than it is so.
+	- a bad know how - added the join() wrapper for Perl 5.8.0 - 5.8.2 bug.
+	- JSON::PP56 encode() did not handle Unicode properly.
+	- added a section about the unicode handling on Perls to JSON::PP doc.
+
+
 1.99_04  Mon Dec 10 14:28:15 2007
 	[JSON]
 	- modified the tests and source for Perl 5.005
@@ -28,7 +44,7 @@ In this version, JSON was totally rewritten.
 	[JSON]
 	- modified tests and document.
 	   in Perl5.8.2 or earlier, decoding with utf8 is broken because of
-           the Perl side problem. (substr() with UTF-8 flagged string is broken.)
+           the Perl side problem. (join() had a bug.)
 	- modified Makefile.PL for Perl 5.005.
 	   in the version, 'require JSON' is fail.... why?
 

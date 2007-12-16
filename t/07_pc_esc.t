@@ -72,8 +72,6 @@ $obj = {test => "abc\\def"};
 $str = $pc->encode($obj);
 is($str,q|{"test":"abc\\\\def"}|);
 
-SKIP: {
-    skip "UNICODE handling is disabale.", 2 unless $JSON::can_handle_UTF16_and_utf8;
 
 $obj = {test => "あいうえお"};
 $str = $pc->encode($obj);
@@ -83,7 +81,6 @@ $obj = {"あいうえお" => "かきくけこ"};
 $str = $pc->encode($obj);
 is($str,q|{"あいうえお":"かきくけこ"}|);
 
-}
 
 $obj = $pc->decode(q|{"id":"abc\ndef"}|);
 is($obj->{id},"abc\ndef",q|{"id":"abc\ndef"}|);

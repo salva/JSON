@@ -24,7 +24,7 @@ SKIP: {
 
 ok (JSON->new->allow_nonref (1)->ascii (1)->utf8 (1)->encode (chr 0x8000) eq '"\u8000"');
 ok (JSON->new->allow_nonref (1)->ascii (1)->utf8 (1)->pretty (1)->encode (chr 0x10402) eq '"\ud801\udc02"');
-
+#print JSON->new->allow_nonref (1)->ascii (1)->utf8 (1)->pretty (1)->encode (chr 0x12345), "\n";
 eval { JSON->new->allow_nonref (1)->utf8 (1)->decode ('"ü"') };
 ok $@ =~ /malformed UTF-8/;
 
