@@ -7,7 +7,7 @@ use base qw(Exporter);
 @JSON::EXPORT = qw(from_json to_json jsonToObj objToJson encode_json decode_json);
 
 BEGIN {
-    $JSON::VERSION = '1.99_05';
+    $JSON::VERSION = '2.00';
     $JSON::DEBUG   = 0 unless (defined $JSON::DEBUG);
 }
 
@@ -91,13 +91,13 @@ sub import {
 # OBSOLETED
 
 sub jsonToObj {
-    # Carp::carp "jsonToObj() will be obsoleted. Please use from_json() instead.";
-    JSON::decode_json(@_);
+    Carp::carp "jsonToObj() will be obsoleted. Please use from_json() instead.";
+    JSON::from_json(@_);
 };
 
 sub objToJson {
-    # Carp::carp "objToJson() will be obsoleted. Please use to_json() instead.";
-    JSON::encode_json(@_);
+    Carp::carp "objToJson() will be obsoleted. Please use to_json() instead.";
+    JSON::to_json(@_);
 };
 
 
@@ -479,7 +479,7 @@ JSON - JSON (JavaScript Object Notation) encoder/decoder
 
 =head1 VERSION
 
-    2.00 (1.99_05)
+    2.00
 
 
 =head1 DESCRIPTION

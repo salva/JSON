@@ -11,7 +11,7 @@ use Carp ();
 use B ();
 #use Devel::Peek;
 
-$JSON::PP::VERSION = '2.0103';
+$JSON::PP::VERSION = '2.0104';
 
 @JSON::PP::EXPORT = qw(encode_json decode_json from_json to_json);
 
@@ -96,15 +96,17 @@ BEGIN {
     }
 
     if ($] >= 5.008 and $] < 5.008003) { # join() in 5.8.0 - 5.8.2 is broken.
-        *CORE::GLOBAL::join = sub ($@) {
-            return '' if (@_ < 2);
-            my $j   = shift;
-            my $str = shift;
-            for (@_) {
-               $str .= $j . $_;
+        require subs;
+        subs->import('join');
+        eval q|
+            sub join {
+                return '' if (@_ < 2);
+                my $j   = shift;
+                my $str = shift;
+                for (@_) { $str .= $j . $_; }
+                return $str;
             }
-            return $str;
-        };
+        |;
     }
 
 }
@@ -306,13 +308,14 @@ sub allow_bigint {
         }
 
         encode_error("hash- or arrayref expected (not a simple scalar, use allow_nonref to allow this)")
-             unless(ref $obj or !$allow_blessed);
+             if(!ref $obj and !$idx->[ P_ALLOW_NONREF ]);
+#             unless(ref $obj or !$allow_blessed);
 
         my $str  = $self->toJson($obj);
 
-        if (!defined $str and $idx->[ P_ALLOW_NONREF ]){
-            $str = $self->valueToJson($obj);
-        }
+#        if (!defined $str and $idx->[ P_ALLOW_NONREF ]){
+#            $str = $self->valueToJson($obj);
+#        }
 
         unless ($ascii or $latin1 or $utf8) {
             utf8::upgrade($str);
@@ -571,9 +574,7 @@ sub _encode_latin1 {
 
 sub _encode_surrogates { # from perlunicode
     my $uni = $_[0] - 0x10000;
-    my $hi  = $uni / 0x400 + 0xD800;
-    my $lo  = $uni % 0x400 + 0xDC00;
-    return ($hi, $lo);
+    return ($uni / 0x400 + 0xD800, $uni % 0x400 + 0xDC00);
 }
 
 
@@ -585,7 +586,7 @@ my $max_intsize;
 
 BEGIN {
     my $checkint = 1111;
-    for my $d (5..64) {
+    for my $d (5..30) {
         $checkint .= 1;
         my $int   = eval qq| $checkint |;
         if ($int =~ /[eE]/) {
@@ -613,9 +614,10 @@ BEGIN {
     my $ch;   # 1chracter
     my $len;  # text length (changed according to UTF8 or NON UTF8)
 
-    my $is_utf8;
+    my $is_utf8;        # must be with UTF8 flag
     my $depth;
     my $encoding;
+    my $is_valid_utf8;
 
     my $utf8;           # 
     my $max_depth;      # max nest nubmer of objects and arrays
@@ -667,15 +669,6 @@ BEGIN {
             ) if ($bytes > $max_size);
         }
 
-        unless ($idx->[ P_ALLOW_NONREF ]) {
-            white();
-            unless (defined $ch and ($ch eq '{' or $ch eq '[')) {
-                decode_error('JSON text must be an object or array'
-                       . ' (but found number, string, true, false or null,'
-                       . ' use allow_nonref to allow this)', 1);
-            }
-        }
-
         # Currently no effect
         my @octets = unpack('C4', $text);
         $encoding =   ( $octets[0] and  $octets[1]) ? 'UTF-8'
@@ -686,6 +679,12 @@ BEGIN {
                     : 'unknown';
 
         my $result = value();
+
+        if (!$idx->[ P_ALLOW_NONREF ] and !ref $result) {
+                decode_error(
+                'JSON text must be an object or array (but found number, string, true, false or null,'
+                       . ' use allow_nonref to allow this)', 1);
+        }
 
         if ($len >= $at) {
             my $consumed = $at - 1;
@@ -715,7 +714,6 @@ BEGIN {
         return number() if($ch =~ /\d/ or $ch eq '-');
         return word();
     }
-
 
     sub string {
         my ($i,$s,$t,$u);
@@ -791,7 +789,8 @@ BEGIN {
                 else{
                     if ($utf8) {
                         use bytes;
-                        if( hex(unpack('H*', $ch))  > 255 ) {
+                        if( hex(unpack('H*', $ch))  > 255 or !is_valid_utf8($ch) ) {
+                            $at--; 
                             decode_error("malformed UTF-8 character in JSON string");
                         }
                     }
@@ -1122,6 +1121,22 @@ BEGIN {
     }
 
 
+    sub is_valid_utf8 {
+        $is_valid_utf8 .= $_[0];
+        $is_valid_utf8 =~ /(?:
+             [\x00-\x7F]
+            |[\xC2-\xDF][\x80-\xBF]
+            |[\xE0][\xA0-\xBF][\x80-\xBF]
+            |[\xE1-\xEC][\x80-\xBF][\x80-\xBF]
+            |[\xED][\x80-\x9F][\x80-\xBF]
+            |[\xEE-\xEF][\x80-\xBF][\x80-\xBF]
+            |[\xF0][\x90-\xBF][\x80-\xBF][\x80-\xBF]
+            |[\xF1-\xF3][\x80-\xBF][\x80-\xBF][\x80-\xBF]
+            |[\xF4][\x80-\x8F][\x80-\xBF][\x80-\xBF]
+        )/xg;
+    }
+
+
     sub decode_error {
         my $error  = shift;
         my $no_rep = shift;
@@ -1348,14 +1363,8 @@ the code range 0..127. Any Unicode characters outside that range will be escaped
 a single \uXXXX or a double \uHHHH\uLLLLL escape sequence, as per RFC4627.
 (See to L<JSON::XS/OBJECT-ORIENTED INTERFACE>).
 
-(Currently this module always handles UTF-16 as UTF-16BE.)
-
-
-In Perl 5.6, this function requires L<Unicode::String> and if you don't have it,
-the method is always set to false and warns.
-
-In 5.005, this option is currently disable.
-
+In Perl 5.005, there is no character having high value (more than 255).
+See to L<UNICODE HANDLING ON PERLS>.
 
 If $enable is false, then the encode method will not escape Unicode characters unless
 required by the JSON syntax or other flags. This results in a faster and more compact format.
@@ -1370,18 +1379,14 @@ required by the JSON syntax or other flags. This results in a faster and more co
 If $enable is true (or missing), then the encode method will encode the resulting JSON
 text as latin1 (or iso-8859-1), escaping any characters outside the code range 0..255.
 
-In Perl 5.6, this function requires L<Unicode::String> and if you don't have it,
-the method is always set to false and warns.
-
-In 5.005, this option is currently disable.
 
 If $enable is false, then the encode method will not escape Unicode characters
 unless required by the JSON syntax or other flags.
 
-See to L<JSON::XS/OBJECT-ORIENTED INTERFACE>.
-
   JSON::XS->new->latin1->encode (["\x{89}\x{abc}"]
   => ["\x{89}\\u0abc"]    # (perl syntax, U+abc escaped, U+89 not)
+
+See to L<UNICODE HANDLING ON PERLS>.
 
 
 =item $json = $json->utf8([$enable])
@@ -1392,6 +1397,9 @@ If $enable is true (or missing), then the encode method will encode the JSON res
 into UTF-8, as required by many protocols, while the decode method expects to be handled
 an UTF-8-encoded string. Please note that UTF-8-encoded strings do not contain any
 characters outside the range 0..255, they are thus useful for bytewise/binary I/O.
+
+(In Perl 5.005, any character outside the range 0..255 does not exist.
+See to L<UNICODE HANDLING ON PERLS>.)
 
 In future versions, enabling this option might enable autodetection of the UTF-16 and UTF-32
 encoding families, as described in RFC4627.
@@ -1936,7 +1944,7 @@ Reuturns C<"\u3042"> and C<"\ud808\udf45"> respectively.
 
 Returns UTF-8 encoded strings with UTF8 flag, regarded as C<U+3042> and C<U+12345>.
 
-Note that the versions from Perl 5.8.0 to 5.8.2, Perl builtine C<join> was broken,
+Note that the versions from Perl 5.8.0 to 5.8.2, Perl built-in C<join> was broken,
 so JSON::PP wraps the C<join> with a subroutine. Thus JSON::PP works slow in the versions.
 
 
@@ -2001,7 +2009,7 @@ Most of the document are copied and modified from JSON::XS doc.
 
 L<JSON::XS>
 
-L<RFC4627|http://www.ietf.org/rfc/rfc4627.txt>
+RFC4627 (L<http://www.ietf.org/rfc/rfc4627.txt>)
 
 =head1 AUTHOR
 

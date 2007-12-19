@@ -46,11 +46,6 @@ eval { JSON->new->decode ([]) }; ok $@ =~ /malformed/;
 eval { JSON->new->decode (\*STDERR) }; ok $@ =~ /malformed/;
 eval { JSON->new->decode (*STDERR) }; ok !!$@; # cannot coerce GLOB
 
-# differences between JSON::XS and JSON::PP
-
-#eval { decode_json ("\"\xa0") }; ok $@ =~ /malformed.*character/;
-#eval { decode_json ("\"\xa0\"") }; ok $@ =~ /malformed.*character/;
-
-eval { decode_json ("\"\xa0") }; ok $@ =~ /JSON text must be an object or array/;
-eval { decode_json ("\"\xa0\"") }; ok $@ =~ /JSON text must be an object or array/;
+eval { decode_json ("\"\xa0") }; ok $@ =~ /malformed.*character/;
+eval { decode_json ("\"\xa0\"") }; ok $@ =~ /malformed.*character/;
 

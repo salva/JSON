@@ -16,6 +16,17 @@ In this version, JSON was totally rewritten.
 
 ## JSON version 2.00
 
+2.00  Wed Dec 19 11:48:04 2007
+	[JSON]
+	- new version!
+	- modified Makefile.PL for broken Perls (when PERL_DL_NONLAZY = 1).
+
+	[JSON::PP] 2.0104
+	- clean up the document.
+	- use 'subs' instead of CORE::GLOBAL for fixing join() in 5.8.0 - 5.8.2
+	- enhanced decoding error messages for JSON::XS compatibility.
+	- jsonToObj and objToJson warn.
+
 
 1.99_05  Fri Dec 14 18:30:43 2007
 	[JSON]
@@ -44,9 +55,9 @@ In this version, JSON was totally rewritten.
 	[JSON]
 	- modified tests and document.
 	   in Perl5.8.2 or earlier, decoding with utf8 is broken because of
-           the Perl side problem. (join() had a bug.)
+           a Perl side problem. (join() had a bug.)
 	- modified Makefile.PL for Perl 5.005.
-	   in the version, 'require JSON' is fail.... why?
+	   in the version, 'require JSON' is fail....
 
 	[JSON::PP] (2.0102)
 	- modified string decode function.
