@@ -7,7 +7,7 @@ use base qw(Exporter);
 @JSON::EXPORT = qw(from_json to_json jsonToObj objToJson encode_json decode_json);
 
 BEGIN {
-    $JSON::VERSION = '2.00';
+    $JSON::VERSION = '2.01';
     $JSON::DEBUG   = 0 unless (defined $JSON::DEBUG);
 }
 
@@ -91,12 +91,20 @@ sub import {
 # OBSOLETED
 
 sub jsonToObj {
-    Carp::carp "jsonToObj() will be obsoleted. Please use from_json() instead.";
-    JSON::from_json(@_);
+    my $alternative = 'from_json';
+    if (defined $_[0] and UNIVERSAL::isa($_[0], 'JSON')) {
+        shift @_; $alternative = 'decode';
+    }
+    Carp::carp "'jsonToObj' will be obsoleted. Please use '$alternative' instead.";
+    return JSON::from_json(@_);
 };
 
 sub objToJson {
-    Carp::carp "objToJson() will be obsoleted. Please use to_json() instead.";
+    my $alternative = 'to_json';
+    if (defined $_[0] and UNIVERSAL::isa($_[0], 'JSON')) {
+        shift @_; $alternative = 'encode';
+    }
+    Carp::carp "'objToJson' will be obsoleted. Please use '$alternative' instead.";
     JSON::to_json(@_);
 };
 

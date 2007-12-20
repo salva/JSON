@@ -37,7 +37,7 @@ SYNOPSIS
      $perl_hash_or_arrayref  = decode_json $utf8_encoded_json_text;
 
 VERSION
-        2.00 (1.99_05)
+        2.00
 
 DESCRIPTION
      ************************** CAUTION ********************************

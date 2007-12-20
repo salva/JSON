@@ -1,6 +1,6 @@
 Revision history for Perl extension JSON.
 
-## TRANSITION PLAN ######################################################
+## JSON version 2.00 #####################################################
 
 In this version, JSON was totally rewritten.
 
@@ -14,7 +14,11 @@ In this version, JSON was totally rewritten.
 ##########################################################################
 
 
-## JSON version 2.00
+2.01  
+	[JSON]
+	- made the object methods - jsonToObj and objToJson
+          available for a while with warnings.
+
 
 2.00  Wed Dec 19 11:48:04 2007
 	[JSON]
