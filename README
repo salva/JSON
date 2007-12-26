@@ -294,7 +294,8 @@ COMMON OBJECT-ORIENTED INTERFACE
     At this time, the returned object is a "JSON::Backend::XS::Supportable"
     object, and by checking JSON::XS unsupported flags in de/encoding, can
     support some unsupported methods - "loose", "allow_bignum",
-    "allow_barekey", "allow_singlequote", "escape_slash".
+    "allow_barekey", "allow_singlequote", "escape_slash" and
+    "indent_length".
 
     "-support_by_pp" is effective only when the backend module is JSON::XS
     and it slows the de/encoding speed down a bit.
@@ -834,7 +835,7 @@ JSON::PP SUPPORT METHODS
     $json = $json->indent_length($length)
         With JSON::XS, The indent space length is 3 and cannot be changed.
         With JSON::PP, it sets the indent space length with the given
-        $length. The default is 3.
+        $length. The default is 3. The acceptable range is 0 to 15.
 
     $json = $json->sort_by($function_name)
     $json = $json->sort_by($subroutine_ref)
@@ -1036,10 +1037,27 @@ TIPS
           objToJson($perl_scalar);
 
     jsonToObj as object method
-          $json->decode($json_text)
+          $json->decode($json_text);
 
     objToJson as object method
-          $json->encode($perl_scalar)
+          $json->encode($perl_scalar);
+
+    $JSON::Pretty, $JSON::Indent, $JSON::Delimiter
+        If "indent" is enable, that menas $JSON::Pretty flag set. And
+        $JSON::Delimiter was substituted by "space_before" and
+        "space_after". In conclusion:
+
+           $json->indent->space_before->space_after;
+
+        Equivalent to:
+
+          $json->pretty;
+
+        To change indent length, use "indent_length".
+
+        (Only with JSON::PP, if "-support_by_pp" is not used.)
+
+          $json->pretty->indent_length(2)->encode($perl_scalar);
 
     $JSON::BareKey
         (Only with JSON::PP, if "-support_by_pp" is not used.)

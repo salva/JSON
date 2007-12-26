@@ -48,6 +48,7 @@ t/xe01_property.t
 t/xe02_bool.t
 t/xe03_bool2.t
 t/xe04support_by_pp.t
+t/xe05_indent_length.t
 t/xe08_decode.t
 
 META.yml                                 Module meta-data (added by MakeMaker)

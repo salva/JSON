@@ -7,7 +7,7 @@ use base qw(Exporter);
 @JSON::EXPORT = qw(from_json to_json jsonToObj objToJson encode_json decode_json);
 
 BEGIN {
-    $JSON::VERSION = '2.01';
+    $JSON::VERSION = '2.02';
     $JSON::DEBUG   = 0 unless (defined $JSON::DEBUG);
 }
 
@@ -291,9 +291,10 @@ sub _set_module {
 
 package JSON::Backend::XS;
 
+use constant INDENT_LENGTH_FLAG => 15 << 12;
+
 use constant UNSUPPORTED_ENCODE_FLAG => {
     ESCAPE_SLASH      => 0x00000010,
-    SELF_ENCODE       => 0x00000020,
 };
 
 use constant UNSUPPORTED_DECODE_FLAG => {
@@ -342,6 +343,10 @@ sub enable_unsupported_methods {
                 }
                 $_[0];
             };
+
+            *{"$pkg\::get_$method"} = sub {
+                ${$_[0]} & UNSUPPORTED_ENCODE_FLAG->{uc($method)} ? 1 : '';
+            };
         }
         elsif (exists UNSUPPORTED_DECODE_FLAG->{uc($method)}) { 
             *{"$pkg\::$method"} = sub {
@@ -353,6 +358,10 @@ sub enable_unsupported_methods {
                     ${$_[0]} &= ~UNSUPPORTED_DECODE_FLAG->{uc($method)};
                 }
                 $_[0];
+            };
+
+            *{"$pkg\::get_$method"} = sub {
+                ${$_[0]} & UNSUPPORTED_DECODE_FLAG->{uc($method)} ? 1 : '';
             };
         }
     }
@@ -401,7 +410,30 @@ sub JSON::Backend::XS::Supportable::_set_for_pp {
         $pp->$method($enable);
     }
 
+    $pp->indent_length( $_[0]->get_indent_length );
+
     return $pp;
+}
+
+
+sub get_indent_length {
+    ${$_[0]} >> 12;
+}
+
+
+sub indent_length {
+    my $length = $_[1];
+
+    if (!defined $length or $length > 15 or $length < 0) {
+        Carp::carp "The acceptable range of indent_length() is 0 to 15.";
+    }
+    else {
+        $length <<= 12;
+        ${$_[0]} &= ~ JSON::Backend::XS::INDENT_LENGTH_FLAG;
+        ${$_[0]} |= $length;
+    }
+
+    $_[0];
 }
 
 
@@ -796,7 +828,7 @@ This feature is achieved by using JSON::PP in C<de/encode>.
 At this time, the returned object is a C<JSON::Backend::XS::Supportable>
 object, and  by checking JSON::XS unsupported flags in de/encoding,
 can support some unsupported methods - C<loose>, C<allow_bignum>,
-C<allow_barekey>, C<allow_singlequote>, C<escape_slash>.
+C<allow_barekey>, C<allow_singlequote>, C<escape_slash> and C<indent_length>.
 
 C<-support_by_pp> is effective only when the backend module is JSON::XS
 and it slows the de/encoding speed down a bit.
@@ -1405,7 +1437,8 @@ If C<$enable> is true (or missing), then C<encode> will escape slashes.
 
 With JSON::XS, The indent space length is 3 and cannot be changed.
 With JSON::PP, it sets the indent space length with the given $length.
-The default is 3.
+The default is 3. The acceptable range is 0 to 15.
+
 
 
 =item $json = $json->sort_by($function_name)
@@ -1644,11 +1677,29 @@ equivalent to:
 
 =item jsonToObj as object method
 
-  $json->decode($json_text)
+  $json->decode($json_text);
 
 =item objToJson as object method
 
-  $json->encode($perl_scalar)
+  $json->encode($perl_scalar);
+
+=item $JSON::Pretty, $JSON::Indent, $JSON::Delimiter
+
+If C<indent> is enable, that menas C<$JSON::Pretty> flag set. And
+C<$JSON::Delimiter> was substituted by C<space_before> and C<space_after>.
+In conclusion:
+
+   $json->indent->space_before->space_after;
+
+Equivalent to:
+
+  $json->pretty;
+
+To change indent length, use C<indent_length>.
+
+(Only with JSON::PP, if C<-support_by_pp> is not used.)
+
+  $json->pretty->indent_length(2)->encode($perl_scalar);
 
 =item $JSON::BareKey
 

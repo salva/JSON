@@ -11,7 +11,7 @@ use Carp ();
 use B ();
 #use Devel::Peek;
 
-$JSON::PP::VERSION = '2.0104';
+$JSON::PP::VERSION = '2.02';
 
 @JSON::PP::EXPORT = qw(encode_json decode_json from_json to_json);
 
@@ -242,8 +242,17 @@ sub filter_json_single_key_object {
 }
 
 sub indent_length {
-    $_[0]->{indent_length} = $_[1] if (defined $_[1]);
+    if (!defined $_[1] or $_[1] > 15 or $_[1] < 0) {
+        Carp::carp "The acceptable range of indent_length() is 0 to 15.";
+    }
+    else {
+        $_[0]->{indent_length} = $_[1];
+    }
     $_[0];
+}
+
+sub get_indent_length {
+    $_[0]->{indent_length};
 }
 
 sub sort_by {
@@ -1819,15 +1828,6 @@ See to L<JSON::XS/OBJECT-ORIENTED INTERFACE>
 
 =over
 
-=item $json = $json->self_encode([$enable])
-
-If C<$enable> is true (or missing), then the C<encode> method
-tests for a C<toJson()> method on the given object, and obtains its
-returned value as the converted value of the object.
-
-This feature is for the old C<JSON> (v1.xx) compatibility.
-It may be obsoleted.
-
 =item $json = $json->allow_singlequote([$enable])
 
 If C<$enable> is true (or missing), then C<decode> will accept
@@ -1892,7 +1892,7 @@ If C<$enable> is true (or missing), then C<encode> will escape slashes.
 
 JSON::XS indent space length is 3 and cannot be changed.
 JSON::PP set the indent space length with the given $length.
-The default is 3.
+The default is 3. The acceptable range is 0 to 15.
 
 
 =item $json = $json->sort_by($function_name)

@@ -70,3 +70,15 @@ WriteMakefile(
 );
 
 
+if ($] < 5.006) { # I saw to http://d.hatena.ne.jp/asakusabashi/20051231/p1 
+    open(IN, "Makefile");
+    open(OUT,">Makefile.tmp") || die;
+    while(<IN>) {
+        s/PERL_DL_NONLAZY=1//g;
+        print OUT;
+    }
+    close(OUT);
+    close(IN);
+    rename("Makefile.tmp" => "Makefile");
+}
+
