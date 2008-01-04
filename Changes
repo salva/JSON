@@ -13,6 +13,20 @@ In this version, JSON was totally rewritten.
 
 ##########################################################################
 
+2.03  Fri Jan  4 14:10:58 2008
+	[JSON]
+	- fixed the description - Transition ways from 1.xx to 2.xx.
+             $JSON::ConvBlessed compat => $json->allow_blessed->as_nonbleesed
+	- support_by_pp supports 'as_nonbleesed' (experimental)
+	- clean up the code for saving memory
+
+	[JSON::PP] 2.03
+	- Now the allo_bignum flag also affects the encoding process.
+            encode() can convert Math::BigInt/Float objects into JSON numbers
+	- added as_nonblessed option (experimental)
+	- cleaned up internal function names (renamed camel case names)
+
+
 2.02  Wed Dec 26 11:08:19 2007
 	[JSON]
 	- Now support_by_pp allows to use indent_length()

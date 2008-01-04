@@ -36,8 +36,13 @@ SYNOPSIS
      $utf8_encoded_json_text = encode_json $perl_hash_or_arrayref;
      $perl_hash_or_arrayref  = decode_json $utf8_encoded_json_text;
 
+     # If you want to use PP only support features, call with '-support_by_pp'
+     # When XS unsupported feature is enable, using PP de/encode.
+
+     use JSON -support_by_pp;
+
 VERSION
-        2.00
+        2.03
 
 DESCRIPTION
      ************************** CAUTION ********************************
@@ -277,7 +282,7 @@ FUNCTIONAL INTERFACE
         See MAPPING, below, for more information on how JSON values are
         mapped to Perl.
 
-COMMON OBJECT-ORIENTED INTERFACE
+USE PP FEATURES EVEN THOUGH XS BACKEND
     Many methods are available with either JSON::XS or JSON::PP and when the
     backend module is JSON::XS, if any JSON::PP specific (i.e. JSON::XS
     unspported) method is called, it will "warn" and be noop.
@@ -292,16 +297,20 @@ COMMON OBJECT-ORIENTED INTERFACE
        $json->allow_nonref->escape_slash->encode("/");
 
     At this time, the returned object is a "JSON::Backend::XS::Supportable"
-    object, and by checking JSON::XS unsupported flags in de/encoding, can
-    support some unsupported methods - "loose", "allow_bignum",
-    "allow_barekey", "allow_singlequote", "escape_slash" and
-    "indent_length".
+    object (re-blessed XS object), and by checking JSON::XS unsupported
+    flags in de/encoding, can support some unsupported methods - "loose",
+    "allow_bignum", "allow_barekey", "allow_singlequote", "escape_slash",
+    "as_nonblessed" and "indent_length".
+
+    When any unsupported methods are not enable, "XS de/encode" will be used
+    as is.
 
     "-support_by_pp" is effective only when the backend module is JSON::XS
-    and it slows the de/encoding speed down a bit.
+    and it makes the de/encoding speed down a bit.
 
     See to "JSON::PP SUPPORT METHODS".
 
+COMMON OBJECT-ORIENTED INTERFACE
     $json = new JSON
         Rturns a new "JSON" object inherited from either JSON::XS or
         JSON::PP that can be used to de/encode JSON strings.
@@ -765,11 +774,12 @@ COMMON OBJECT-ORIENTED INTERFACE
 
 JSON::PP SUPPORT METHODS
     The below methods are JSON::PP own methods, so when "JSON" works with
-    JSON::PP (i.e. the created object is a JSON::PP objefct), available. See
+    JSON::PP (i.e. the created object is a JSON::PP object), available. See
     to "JSON::PP OWN METHODS" in JSON::PP in detail.
 
     If you use "JSON" with additonal "-support_by_pp", some methods are
-    available even with JSON::XS. See to "COMMON OBJECT-ORIENTED INTERFACE".
+    available even with JSON::XS. See to "USE PP FEATURES EVEN THOUGH XS
+    BACKEND".
 
        BEING { $ENV{PERL_JSON_BACKEND} = 'JSON::XS' }
    
@@ -813,6 +823,15 @@ JSON::PP SUPPORT METHODS
         integer Perl cannot handle as integer into a Math::BigInt object and
         convert a floating number (any) into a Math::BigFloat.
 
+        On the contary, "encode" converts "Math::BigInt" objects and
+        "Math::BigFloat" objects into JSON numbers with "allow_blessed"
+        enable.
+
+           $json->allow_nonref->allow_blessed->allow_bignum;
+           $bigfloat = $json->decode('2.000000000000000000000000001');
+           print $json->encode($bigfloat);
+           # => 2.000000000000000000000000001
+
         See to MAPPING aboout the conversion of JSON number.
 
     $json = $json->loose([$enable])
@@ -831,6 +850,13 @@ JSON::PP SUPPORT METHODS
         default JSON backend modules encode strings without escaping slash.
 
         If $enable is true (or missing), then "encode" will escape slashes.
+
+    $json = $json->as_nonblessed
+        (EXPERIMENTAL) If $enable is true (or missing), then "encode" will
+        convert a blessed hash reference or a blessed array reference
+        (contains other blessed references) into JSON members and arrays.
+
+        This feature is effective only when "allow_blessed" is enable.
 
     $json = $json->indent_length($length)
         With JSON::XS, The indent space length is 3 and cannot be changed.
@@ -886,11 +912,11 @@ MAPPING
         slightly less memory and might represent more values exactly than
         (floating point) numbers.
 
-        If the number consists of digits only, JSON::XS will try to
-        represent it as an integer value. If that fails, it will try to
-        represent it as a numeric (floating point) value if that is possible
-        without loss of precision. Otherwise it will preserve the number as
-        a string value.
+        If the number consists of digits only, "JSON" will try to represent
+        it as an integer value. If that fails, it will try to represent it
+        as a numeric (floating point) value if that is possible without loss
+        of precision. Otherwise it will preserve the number as a string
+        value.
 
         Numbers containing a fractional or exponential part will always be
         represented as numeric (floating point) values, possibly at a loss
@@ -969,6 +995,11 @@ MAPPING
         their underlying representation (hash- or arrayref), but this
         behaviour might change in future versions.
 
+        With JSON::PP as the backend, if "as_nonblessed" is enable, then
+        "encode" converts blessed hash references or blessed array
+        references (contains other blessed references) into JSON members and
+        arrays.
+
     simple scalars
         Simple Perl scalars (any scalar that is not a reference) are the
         most difficult objects to encode: JSON::XS and JSON::PP will encode
@@ -1004,6 +1035,11 @@ MAPPING
         You can not currently output JSON booleans or force the type in
         other, less obscure, ways. Tell me if you need this capability.
 
+    Big Number
+        With JSON::PP as the backend, if "allow_bignum" is enable, then
+        "encode" converts "Math::BigInt" objects and "Math::BigFloat"
+        objects into JSON numbers.
+
 TIPS
   Transition ways from 1.xx to 2.xx.
     You should set "suport_by_pp" mode firstly, because it is always
@@ -1028,12 +1064,12 @@ TIPS
           jsonToObj($json_text);
 
     Exported objToJson (advanced)
-          $flags = {allow_blessed => 1, convert_bleesed => 1};
+          $flags = {allow_blessed => 1, allow_barekey => 1};
           to_json($perl_scalar, $flags);
 
         equivalent to:
 
-          $JSON::ConvBlessed = 1;
+          $JSON::BareKey = 1;
           objToJson($perl_scalar);
 
     jsonToObj as object method
@@ -1065,7 +1101,9 @@ TIPS
           $json->allow_barekey->decode($json_text)
 
     $JSON::ConvBlessed
-          $json->allow_blessed->convert_bleesed->encode($perl_scalar)
+        (Only with JSON::PP, if "-support_by_pp" is not used.)
+
+          $json->allow_blessed->as_nonbleesed->encode($perl_scalar)
 
     $JSON::QuotApos
         (Only with JSON::PP, if "-support_by_pp" is not used.)
@@ -1163,7 +1201,7 @@ AUTHOR
     The relese of this new version owes to the courtesy of Marc Lehmann.
 
 COPYRIGHT AND LICENSE
-    Copyright 2005-2007 by Makamaka Hannyaharamitu
+    Copyright 2005-2008 by Makamaka Hannyaharamitu
 
     This library is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.

@@ -11,7 +11,7 @@ use Carp ();
 use B ();
 #use Devel::Peek;
 
-$JSON::PP::VERSION = '2.02';
+$JSON::PP::VERSION = '2.03';
 
 @JSON::PP::EXPORT = qw(encode_json decode_json from_json to_json);
 
@@ -34,10 +34,10 @@ use constant P_RELAXED              => 11;
 use constant P_LOOSE                => 12;
 use constant P_ALLOW_BIGNUM         => 13;
 use constant P_ALLOW_BAREKEY        => 14;
-use constant P_DISABLE_UTF8         => 15;
-use constant P_ALLOW_SINGLEQUOTE    => 16;
-use constant P_ESCAPE_SLASH         => 17;
-use constant P_SELF_ENCODE          => 18;
+use constant P_ALLOW_SINGLEQUOTE    => 15;
+use constant P_ESCAPE_SLASH         => 16;
+use constant P_AS_NONBLESSED        => 17;
+
 
 BEGIN {
     my @xs_compati_bit_properties = qw(
@@ -45,8 +45,8 @@ BEGIN {
             allow_blessed convert_blessed relaxed
     );
     my @pp_bit_properties = qw(
-            self_encode allow_singlequote allow_bignum disable_UTF8 loose
-            allow_barekey escape_slash
+            allow_singlequote allow_bignum loose
+            allow_barekey escape_slash as_nonblessed
     );
 
     # Perl version check, ascii() is enable?
@@ -117,10 +117,11 @@ BEGIN {
 
 my %encode_allow_method
      = map {($_ => 1)} qw/utf8 pretty allow_nonref latin1 self_encode escape_slash
-                          allow_blessed convert_blessed indent indent_length
+                          allow_blessed convert_blessed indent indent_length allow_bignum
+                          as_nonblessed
                         /;
 my %decode_allow_method
-     = map {($_ => 1)} qw/utf8 allow_nonref disable_UTF8 loose allow_singlequote allow_bignum
+     = map {($_ => 1)} qw/utf8 allow_nonref loose allow_singlequote allow_bignum
                           allow_barekey max_size relaxed/;
 
 
@@ -272,25 +273,26 @@ sub allow_bigint {
 
 { # Convert
 
-    my $depth;
     my $max_depth;
-    my $keysort;
     my $indent;
     my $ascii;
+    my $latin1;
     my $utf8;
-    my $self_encode;
-    my $disable_UTF8;
-    my $escape_slash;
     my $space_before;
     my $space_after;
     my $canonical;
-
-    my $latin1;
     my $allow_blessed;
     my $convert_blessed;
-    my $indent_count;
 
     my $indent_length;
+    my $escape_slash;
+    my $bignum;
+    my $as_nonblessed;
+
+    my $depth;
+    my $indent_count;
+    my $keysort;
+
 
     sub PP_encode_json {
         my $self = shift;
@@ -302,9 +304,9 @@ sub allow_bigint {
         my $idx = $self->{PROPS};
 
         ($ascii, $latin1, $utf8, $indent, $canonical, $space_before, $space_after, $allow_blessed,
-            $convert_blessed, $escape_slash, $self_encode)
+            $convert_blessed, $escape_slash, $bignum, $as_nonblessed)
          = @{$idx}[P_ASCII .. P_SPACE_AFTER, P_ALLOW_BLESSED, P_CONVERT_BLESSED,
-                    P_ESCAPE_SLASH, P_SELF_ENCODE];
+                    P_ESCAPE_SLASH, P_ALLOW_BIGNUM, P_AS_NONBLESSED];
 
         ($max_depth, $indent_length) = @{$self}{qw/max_depth indent_length/};
 
@@ -318,13 +320,8 @@ sub allow_bigint {
 
         encode_error("hash- or arrayref expected (not a simple scalar, use allow_nonref to allow this)")
              if(!ref $obj and !$idx->[ P_ALLOW_NONREF ]);
-#             unless(ref $obj or !$allow_blessed);
 
-        my $str  = $self->toJson($obj);
-
-#        if (!defined $str and $idx->[ P_ALLOW_NONREF ]){
-#            $str = $self->valueToJson($obj);
-#        }
+        my $str  = $self->object_to_json($obj);
 
         unless ($ascii or $latin1 or $utf8) {
             utf8::upgrade($str);
@@ -338,41 +335,42 @@ sub allow_bigint {
     }
 
 
-    sub toJson {
+    sub object_to_json {
         my ($self, $obj) = @_;
         my $type = ref($obj);
 
         if($type eq 'HASH'){
-            return $self->hashToJson($obj);
+            return $self->hash_to_json($obj);
         }
         elsif($type eq 'ARRAY'){
-            return $self->arrayToJson($obj);
+            return $self->array_to_json($obj);
         }
         elsif ($type) { # blessed object?
             if (blessed($obj)) {
-                if ($convert_blessed) {
-                    if ( $obj->can('TO_JSON') ) {
-                        return $self->toJson( $obj->TO_JSON() );
-                    }
-                }
 
-                if (!$obj->isa('JSON::PP::Boolean')) { # Boolean is processed in valueToJson
-                   encode_error( sprintf("encountered object '%s', but neither allow_blessed "
-                        . "nor convert_blessed settings are enabled", $obj) ) unless ($allow_blessed);
-                    return 'null';
-                }
+                return $self->value_to_json($obj) if ( $obj->isa('JSON::PP::Boolean') );
+                return $self->object_to_json( $obj->TO_JSON() )
+                    if ( $convert_blessed and $obj->can('TO_JSON') );
+                return "$obj" if ( $bignum and _is_bignum($obj) );
+                return $self->blessed_to_json($obj) if ($allow_blessed and $as_nonblessed);
+
+                encode_error( sprintf("encountered object '%s', but neither allow_blessed "
+                    . "nor convert_blessed settings are enabled", $obj)
+                ) unless ($allow_blessed);
+
+                return 'null';
             }
             else {
-                return $self->valueToJson($obj);
+                return $self->value_to_json($obj);
             }
         }
         else{
-            return $self->valueToJson($obj);
+            return $self->value_to_json($obj);
         }
     }
 
 
-    sub hashToJson {
+    sub hash_to_json {
         my ($self, $obj) = @_;
         my ($k,$v);
         my %res;
@@ -380,7 +378,7 @@ sub allow_bigint {
         encode_error("data structure too deep (hit recursion limit)")
                                          if (++$depth > $max_depth);
 
-        my ($pre, $post) = $indent ? $self->_upIndent() : ('', '');
+        my ($pre, $post) = $indent ? $self->_up_indent() : ('', '');
         my $del = ($space_before ? ' ' : '') . ':' . ($space_after ? ' ' : '');
 
         if ( my $tie_class = tied %$obj ) {
@@ -392,29 +390,29 @@ sub allow_bigint {
 
         for my $k (keys %$obj) {
             my $v = $obj->{$k};
-            $res{$k} = $self->toJson($v) || $self->valueToJson($v);
+            $res{$k} = $self->object_to_json($v) || $self->value_to_json($v);
         }
 
         --$depth;
-        $self->_downIndent() if ($indent);
+        $self->_down_indent() if ($indent);
 
         return '{' . $pre
                    . join(",$pre", map { utf8::decode($_) if ($] < 5.008);
-                     _stringfy($self, $_)
+                     string_to_json($self, $_)
                    . $del . $res{$_} } _sort($self, \%res))
                    . $post
                    . '}';
     }
 
 
-    sub arrayToJson {
+    sub array_to_json {
         my ($self, $obj) = @_;
         my @res;
 
         encode_error("data structure too deep (hit recursion limit)")
                                          if (++$depth > $max_depth);
 
-        my ($pre, $post) = $indent ? $self->_upIndent() : ('', '');
+        my ($pre, $post) = $indent ? $self->_up_indent() : ('', '');
 
         if (my $tie_class = tied @$obj) {
             if ( $tie_class->can('TIEARRAY') ) {
@@ -424,17 +422,17 @@ sub allow_bigint {
         }
 
         for my $v (@$obj){
-            push @res, $self->toJson($v) || $self->valueToJson($v);
+            push @res, $self->object_to_json($v) || $self->value_to_json($v);
         }
 
         --$depth;
-        $self->_downIndent() if ($indent);
+        $self->_down_indent() if ($indent);
 
         return '[' . $pre . join(",$pre" ,@res) . $post . ']';
     }
 
 
-    sub valueToJson {
+    sub value_to_json {
         my ($self, $value) = @_;
 
         return 'null' if(!defined $value);
@@ -451,14 +449,14 @@ sub allow_bigint {
         my $type = ref($value);
 
         if(!$type){
-            return _stringfy($self, $value);
+            return string_to_json($self, $value);
         }
         elsif( blessed($value) and  $value->isa('JSON::PP::Boolean') ){
             return $$value == 1 ? 'true' : 'false';
         }
         elsif ($type) {
             if ((overload::StrVal($value) =~ /=(\w+)/)[0]) {
-                return $self->valueToJson("$value");
+                return $self->value_to_json("$value");
             }
 
             if ($type eq 'SCALAR' and defined $$value) {
@@ -495,7 +493,7 @@ sub allow_bigint {
     );
 
 
-    sub _stringfy {
+    sub string_to_json {
         my ($self, $arg) = @_;
 
         $arg =~ s/([\x22\x5c\n\r\t\f\b])/$esc{$1}/eg;
@@ -518,9 +516,17 @@ sub allow_bigint {
     }
 
 
-    sub selfToJson {
-        my ($self, $obj) = @_;
-        return $obj->toJson($self);
+    sub blessed_to_json {
+        my $b_obj = B::svref_2object($_[1]);
+        if ($b_obj->isa('B::HV')) {
+            return $_[0]->hash_to_json($_[1]);
+        }
+        elsif ($b_obj->isa('B::AV')) {
+            return $_[0]->array_to_json($_[1]);
+        }
+        else {
+            return 'null';
+        }
     }
 
 
@@ -536,7 +542,7 @@ sub allow_bigint {
     }
 
 
-    sub _upIndent {
+    sub _up_indent {
         my $self  = shift;
         my $space = ' ' x $indent_length;
 
@@ -552,7 +558,15 @@ sub allow_bigint {
     }
 
 
-    sub _downIndent { $_[0]->{indent_count}--; }
+    sub _down_indent { $_[0]->{indent_count}--; }
+
+
+    sub PP_encode_box {
+        {
+            depth        => $depth,
+            indent_count => $indent_count,
+        };
+    }
 
 } # Convert
 
@@ -585,6 +599,12 @@ sub _encode_surrogates { # from perlunicode
     my $uni = $_[0] - 0x10000;
     return ($uni / 0x400 + 0xD800, $uni % 0x400 + 0xDC00);
 }
+
+
+sub _is_bignum {
+    $_[0]->isa('Math::BigInt') or $_[0]->isa('Math::BigFloat');
+}
+
 
 
 #
@@ -630,18 +650,17 @@ BEGIN {
 
     my $utf8;           # 
     my $max_depth;      # max nest nubmer of objects and arrays
-    my $allow_bigint;   # using Math::BigInt
-    my $disable_UTF8;   # don't flag UTF8 on
-    my $singlequote;    # loosely quoting
-    my $loose;          # 
-    my $allow_barekey;  # bareKey
-
     my $max_size;
     my $relaxed;
     my $cb_object;
     my $cb_sk_object;
 
     my $F_HOOK;
+
+    my $allow_bigint;   # using Math::BigInt
+    my $singlequote;    # loosely quoting
+    my $loose;          # 
+    my $allow_barekey;  # bareKey
 
     # $opt flag
     # 0x00000001 .... decode_prefix
@@ -659,7 +678,7 @@ BEGIN {
 
         my $idx = $self->{PROPS};
 
-        ($utf8, $relaxed, $loose, $allow_bigint, $allow_barekey, undef, $singlequote)
+        ($utf8, $relaxed, $loose, $allow_bigint, $allow_barekey, $singlequote)
             = @{$idx}[P_UTF8, P_RELAXED, P_LOOSE .. P_ALLOW_SINGLEQUOTE];
 
         $is_utf8 = 1 if (utf8::is_utf8($text));
@@ -1179,6 +1198,19 @@ BEGIN {
         else {
             return $val[0];
         }
+    }
+
+    sub PP_decode_box {
+        {
+            text    => $text,
+            at      => $at,
+            ch      => $ch,
+            len     => $len,
+            is_utf8 => $is_utf8,
+            depth   => $depth,
+            encoding      => $encoding,
+            is_valid_utf8 => $is_valid_utf8,
+        };
     }
 
 } # PARSE
@@ -1852,19 +1884,21 @@ application-specific files written by humans.
 
     $json->allow_barekey->decode({foo:"bar"});
 
-
-=item $json = $json->allow_bigint([$enable])
-
-Obsoleted. Use C<allow_bignum> instead.
-
-
 =item $json = $json->allow_bignum([$enable])
 
 If C<$enable> is true (or missing), then C<decode> will convert
 the big integer Perl cannot handle as integer into a L<Math::BigInt>
 object and convert a floating number (any) into a L<Math::BigFloat>.
 
-See to L<JSON::XS/MAPPING> aboout the conversion of JSON number.
+On the contary, C<encode> converts C<Math::BigInt> objects and C<Math::BigFloat>
+objects into JSON numbers with C<allow_blessed> enable.
+
+   $json->allow_nonref->allow_blessed->allow_bignum;
+   $bigfloat = $json->decode('2.000000000000000000000000001');
+   print $json->encode($bigfloat);
+   # => 2.000000000000000000000000001
+
+See to L<JSON::XS/MAPPING> aboout the normal conversion of JSON number.
 
 
 =item $json = $json->loose([$enable])
@@ -1887,6 +1921,14 @@ JSON::PP (as same as JSON::XS) encodes strings without escaping slash.
 
 If C<$enable> is true (or missing), then C<encode> will escape slashes.
 
+=item $json = $json->as_nonblessed
+
+(EXPERIMENTAL)
+If C<$enable> is true (or missing), then C<encode> will convert
+a blessed hash reference or a blessed array reference (contains
+other blessed references) into JSON members and arrays.
+
+This feature is effective only when C<allow_blessed> is enable.
 
 =item $json = $json->indent_length([$length])
 
@@ -1919,6 +1961,38 @@ If $integer is set, then the effect is same as C<canonical> on.
 
 =back
 
+=head1 INTERNAL
+
+For developers.
+
+=over
+
+=item PP_encode_box
+
+Returns
+
+        {
+            depth        => $depth,
+            indent_count => $indent_count,
+        }
+
+
+=item PP_decode_box
+
+Returns
+
+        {
+            text    => $text,
+            at      => $at,
+            ch      => $ch,
+            len     => $len,
+            is_utf8 => $is_utf8,
+            depth   => $depth,
+            encoding      => $encoding,
+            is_valid_utf8 => $is_valid_utf8,
+        };
+
+=back
 
 =head1 MAPPING
 
@@ -1992,14 +2066,6 @@ This is not a character C<U+12345> but bytes - C<0xf0 0x92 0x8d 0x85>.
 
 =over
 
-=item Document!
-
-It is troublesome.
-
-=item clean up
-
-Under the cleaning.
-
 =back
 
 
@@ -2018,7 +2084,7 @@ Makamaka Hannyaharamitu, E<lt>makamaka[at]cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2007 by Makamaka Hannyaharamitu
+Copyright 2008 by Makamaka Hannyaharamitu
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 

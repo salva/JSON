@@ -7,7 +7,7 @@ use base qw(Exporter);
 @JSON::EXPORT = qw(from_json to_json jsonToObj objToJson encode_json decode_json);
 
 BEGIN {
-    $JSON::VERSION = '2.02';
+    $JSON::VERSION = '2.03';
     $JSON::DEBUG   = 0 unless (defined $JSON::DEBUG);
 }
 
@@ -33,7 +33,7 @@ my @XSOnlyMethods = qw//; # Currently nothing
 
 my @PPOnlyMethods = qw/
     indent_length sort_by
-    self_encode allow_singlequote allow_bignum loose allow_barekey escape_slash
+    allow_singlequote allow_bignum loose allow_barekey escape_slash as_nonblessed
 /; # JSON::PP specific
 
 
@@ -73,7 +73,7 @@ sub import {
     for my $tag (@_) {
         if ($tag eq '-support_by_pp' and !$_ALLOW_UNSUPPORTED++) {
             JSON::Backend::XS
-                ->enable_unsupported_methods(@PPOnlyMethods) if ($JSON::Backend eq $Module_XS);
+                ->support_by_pp(@PPOnlyMethods) if ($JSON::Backend eq $Module_XS);
             next;
         }
         elsif ($tag eq '-no_export') {
@@ -230,6 +230,8 @@ sub _load_xs {
 
     unless (defined $opt and $opt & $_INSTALL_ONLY) {
         _set_module( $JSON::Backend = $Module_XS );
+        my $data = join("", <DATA>); # this code is from Jcode 2.xx.
+        eval $data;
         JSON::Backend::XS->init;
     }
 
@@ -285,173 +287,6 @@ sub _set_module {
 
 
 #
-# Helper classes for Backend Modules
-#
-
-
-package JSON::Backend::XS;
-
-use constant INDENT_LENGTH_FLAG => 15 << 12;
-
-use constant UNSUPPORTED_ENCODE_FLAG => {
-    ESCAPE_SLASH      => 0x00000010,
-};
-
-use constant UNSUPPORTED_DECODE_FLAG => {
-    LOOSE             => 0x00000001,
-    ALLOW_BIGNUM      => 0x00000002,
-    ALLOW_BAREKEY     => 0x00000004,
-    ALLOW_SINGLEQUOTE => 0x00000008,
-};
-
-
-sub init {
-    local $^W;
-    no strict qw(refs);
-    *{"JSON::decode_json"} = \&{"JSON::XS::decode_json"};
-    *{"JSON::encode_json"} = \&{"JSON::XS::encode_json"};
-    *{"JSON::XS::is_xs"}  = sub { 1 };
-    *{"JSON::XS::is_pp"}  = sub { 0 };
-    return 1;
-}
-
-
-sub enable_unsupported_methods {
-    my ($class, @methods) = @_;
-
-    local $^W;
-    no strict qw(refs);
-
-    push @JSON::Backend::XS::Supportable::ISA, 'JSON';
-
-    my $pkg = 'JSON::Backend::XS::Supportable';
-
-    *{JSON::new} = sub {
-        my $proto = new JSON::XS; $$proto = 0;
-        bless  $proto, $pkg;
-    };
-
-    for my $method (@methods) {
-        if (exists UNSUPPORTED_ENCODE_FLAG->{uc($method)}) { 
-            *{"$pkg\::$method"} = sub {
-                local $^W;
-                if (defined $_[1] ? $_[1] : 1) {
-                    ${$_[0]} |= UNSUPPORTED_ENCODE_FLAG->{uc($method)};
-                }
-                else {
-                    ${$_[0]} &= ~UNSUPPORTED_ENCODE_FLAG->{uc($method)};
-                }
-                $_[0];
-            };
-
-            *{"$pkg\::get_$method"} = sub {
-                ${$_[0]} & UNSUPPORTED_ENCODE_FLAG->{uc($method)} ? 1 : '';
-            };
-        }
-        elsif (exists UNSUPPORTED_DECODE_FLAG->{uc($method)}) { 
-            *{"$pkg\::$method"} = sub {
-                local $^W;
-                if (defined $_[1] ? $_[1] : 1) {
-                    ${$_[0]} |= UNSUPPORTED_DECODE_FLAG->{uc($method)};
-                }
-                else {
-                    ${$_[0]} &= ~UNSUPPORTED_DECODE_FLAG->{uc($method)};
-                }
-                $_[0];
-            };
-
-            *{"$pkg\::get_$method"} = sub {
-                ${$_[0]} & UNSUPPORTED_DECODE_FLAG->{uc($method)} ? 1 : '';
-            };
-        }
-    }
-
-    $JSON::DEBUG and Carp::carp("set -support_by_pp mode.");
-
-    return 1;
-}
-
-
-package JSON::Backend::XS::Supportable;
-
-sub encode {
-    ${$_[0]} ? _set_for_pp('encode' => @_)->encode($_[1])
-             : $_[0]->SUPER::encode($_[1]);
-}
-
-sub JSON::Backend::XS::Supportable::decode {
-    ${$_[0]} ? _set_for_pp('decode' => @_)->decode($_[1])
-             : $_[0]->SUPER::decode($_[1]);
-}
-
-sub JSON::Backend::XS::Supportable::decode_prefix {
-    ${$_[0]} ? _set_for_pp('decode' => @_)->decode_prefix($_[1])
-             : $_[0]->SUPER::decode_prefix($_[1]);
-}
-
-
-sub JSON::Backend::XS::Supportable::_set_for_pp {
-    require JSON::PP;
-    my $type  = shift;
-    my $pp    = new JSON::PP;
-    my $prop = $_[0]->property;
-
-    for my $name (keys %$prop) {
-        $pp->$name( $prop->{$name} ? $prop->{$name} : 0 );
-    }
-
-    my $unsupported = $type eq 'encode' ? JSON::Backend::XS::UNSUPPORTED_ENCODE_FLAG
-                                        : JSON::Backend::XS::UNSUPPORTED_DECODE_FLAG;
-    my $flags       = ${$_[0]} || 0;
-
-    for my $name (keys %$unsupported) {
-        my $enable = ($flags & $unsupported->{$name}) ? 1 : 0;
-        my $method = lc $name;
-        $pp->$method($enable);
-    }
-
-    $pp->indent_length( $_[0]->get_indent_length );
-
-    return $pp;
-}
-
-
-sub get_indent_length {
-    ${$_[0]} >> 12;
-}
-
-
-sub indent_length {
-    my $length = $_[1];
-
-    if (!defined $length or $length > 15 or $length < 0) {
-        Carp::carp "The acceptable range of indent_length() is 0 to 15.";
-    }
-    else {
-        $length <<= 12;
-        ${$_[0]} &= ~ JSON::Backend::XS::INDENT_LENGTH_FLAG;
-        ${$_[0]} |= $length;
-    }
-
-    $_[0];
-}
-
-
-package JSON::Backend::PP;
-
-
-sub init {
-    local $^W;
-    no strict qw(refs);
-    *{"JSON::decode_json"} = \&{"JSON::PP::decode_json"};
-    *{"JSON::encode_json"} = \&{"JSON::PP::encode_json"};
-    *{"JSON::PP::is_xs"}  = sub { 0 };
-    *{"JSON::PP::is_pp"}  = sub { 1 };
-    return 1;
-}
-
-
-#
 # JSON Boolean
 #
 
@@ -486,6 +321,195 @@ sub _overrride_overload {
 }
 
 
+#
+# Helper classes for Backend Module (PP)
+#
+
+package JSON::Backend::PP;
+
+sub init {
+    local $^W;
+    no strict qw(refs);
+    *{"JSON::decode_json"} = \&{"JSON::PP::decode_json"};
+    *{"JSON::encode_json"} = \&{"JSON::PP::encode_json"};
+    *{"JSON::PP::is_xs"}  = sub { 0 };
+    *{"JSON::PP::is_pp"}  = sub { 1 };
+    return 1;
+}
+
+
+#
+# To save memory, the below lines are read only when XS backend is used.
+#
+
+package JSON;
+
+1;
+__DATA__
+
+#
+# Helper classes for Backend Module (XS)
+#
+
+package JSON::Backend::XS;
+
+use constant INDENT_LENGTH_FLAG => 15 << 12;
+
+use constant UNSUPPORTED_ENCODE_FLAG => {
+    ESCAPE_SLASH      => 0x00000010,
+    ALLOW_BIGNUM      => 0x00000020,
+    AS_NONBLESSED     => 0x00000040,
+    EXPANDED          => 0x10000000, # for developer's
+};
+
+use constant UNSUPPORTED_DECODE_FLAG => {
+    LOOSE             => 0x00000001,
+    ALLOW_BIGNUM      => 0x00000002,
+    ALLOW_BAREKEY     => 0x00000004,
+    ALLOW_SINGLEQUOTE => 0x00000008,
+    EXPANDED          => 0x20000000, # for developer's
+};
+
+
+sub init {
+    local $^W;
+    no strict qw(refs);
+    *{"JSON::decode_json"} = \&{"JSON::XS::decode_json"};
+    *{"JSON::encode_json"} = \&{"JSON::XS::encode_json"};
+    *{"JSON::XS::is_xs"}  = sub { 1 };
+    *{"JSON::XS::is_pp"}  = sub { 0 };
+    return 1;
+}
+
+
+sub support_by_pp {
+    my ($class, @methods) = @_;
+
+    local $^W;
+    no strict qw(refs);
+
+    push @JSON::Backend::XS::Supportable::ISA, 'JSON';
+
+    my $pkg = 'JSON::Backend::XS::Supportable';
+
+    *{JSON::new} = sub {
+        my $proto = new JSON::XS; $$proto = 0;
+        bless  $proto, $pkg;
+    };
+
+    for my $method (@methods) {
+        my $flag = uc($method);
+        my $type |= (UNSUPPORTED_ENCODE_FLAG->{$flag} || 0);
+           $type |= (UNSUPPORTED_DECODE_FLAG->{$flag} || 0);
+
+        next unless($type);
+
+        $pkg->_make_unsupported_method($method => $type);
+    }
+
+    $JSON::DEBUG and Carp::carp("set -support_by_pp mode.");
+
+    return 1;
+}
+
+
+#
+# Helper classes for XS
+#
+
+package JSON::Backend::XS::Supportable;
+
+
+sub _make_unsupported_method {
+    my ($pkg, $method, $type) = @_;
+
+    local $^W;
+    no strict qw(refs);
+
+    *{"$pkg\::$method"} = sub {
+        local $^W;
+        if (defined $_[1] ? $_[1] : 1) {
+            ${$_[0]} |= $type;
+        }
+        else {
+            ${$_[0]} &= ~$type;
+        }
+        $_[0];
+    };
+
+    *{"$pkg\::get_$method"} = sub {
+        ${$_[0]} & $type ? 1 : '';
+   };
+
+}
+
+
+sub _set_for_pp {
+    require JSON::PP;
+    my $type  = shift;
+    my $pp    = new JSON::PP;
+    my $prop = $_[0]->property;
+
+    for my $name (keys %$prop) {
+        $pp->$name( $prop->{$name} ? $prop->{$name} : 0 );
+    }
+
+    my $unsupported = $type eq 'encode' ? JSON::Backend::XS::UNSUPPORTED_ENCODE_FLAG
+                                        : JSON::Backend::XS::UNSUPPORTED_DECODE_FLAG;
+    my $flags       = ${$_[0]} || 0;
+
+    for my $name (keys %$unsupported) {
+        next if ($name eq 'EXPANDED'); # for developer's
+        my $enable = ($flags & $unsupported->{$name}) ? 1 : 0;
+        my $method = lc $name;
+        $pp->$method($enable);
+    }
+
+    $pp->indent_length( $_[0]->get_indent_length );
+
+    return $pp;
+}
+
+
+sub encode { # if unsupported-flag is set, use PP
+    ${$_[0]} ? _set_for_pp('encode' => @_)->encode($_[1])
+             : $_[0]->SUPER::encode($_[1]);
+}
+
+
+sub decode { # if unsupported-flag is set, use PP
+    ${$_[0]} ? _set_for_pp('decode' => @_)->decode($_[1])
+             : $_[0]->SUPER::decode($_[1]);
+}
+
+
+sub decode_prefix { # if unsupported-flag is set, use PP
+    ${$_[0]} ? _set_for_pp('decode' => @_)->decode_prefix($_[1])
+             : $_[0]->SUPER::decode_prefix($_[1]);
+}
+
+
+sub get_indent_length {
+    ${$_[0]} << 4 >> 16;
+}
+
+
+sub indent_length {
+    my $length = $_[1];
+
+    if (!defined $length or $length > 15 or $length < 0) {
+        Carp::carp "The acceptable range of indent_length() is 0 to 15.";
+    }
+    else {
+        $length <<= 12;
+        ${$_[0]} &= ~ JSON::Backend::XS::INDENT_LENGTH_FLAG;
+        ${$_[0]} |= $length;
+    }
+
+    $_[0];
+}
+
+
 1;
 __END__
 
@@ -517,9 +541,16 @@ JSON - JSON (JavaScript Object Notation) encoder/decoder
  $utf8_encoded_json_text = encode_json $perl_hash_or_arrayref;
  $perl_hash_or_arrayref  = decode_json $utf8_encoded_json_text;
 
+
+ # If you want to use PP only support features, call with '-support_by_pp'
+ # When XS unsupported feature is enable, using PP de/encode.
+
+ use JSON -support_by_pp;
+
+
 =head1 VERSION
 
-    2.00
+    2.03
 
 
 =head1 DESCRIPTION
@@ -810,7 +841,7 @@ Perl.
 =back
 
 
-=head1 COMMON OBJECT-ORIENTED INTERFACE
+=head1 USE PP FEATURES EVEN THOUGH XS BACKEND
 
 Many methods are available with either JSON::XS or JSON::PP and
 when the backend module is JSON::XS, if any JSON::PP specific (i.e. JSON::XS unspported)
@@ -826,14 +857,20 @@ This feature is achieved by using JSON::PP in C<de/encode>.
    $json->allow_nonref->escape_slash->encode("/");
 
 At this time, the returned object is a C<JSON::Backend::XS::Supportable>
-object, and  by checking JSON::XS unsupported flags in de/encoding,
-can support some unsupported methods - C<loose>, C<allow_bignum>,
-C<allow_barekey>, C<allow_singlequote>, C<escape_slash> and C<indent_length>.
+object (re-blessed XS object), and  by checking JSON::XS unsupported flags
+in de/encoding, can support some unsupported methods - C<loose>, C<allow_bignum>,
+C<allow_barekey>, C<allow_singlequote>, C<escape_slash>, C<as_nonblessed>
+and C<indent_length>.
+
+When any unsupported methods are not enable, C<XS de/encode> will be
+used as is.
 
 C<-support_by_pp> is effective only when the backend module is JSON::XS
-and it slows the de/encoding speed down a bit.
+and it makes the de/encoding speed down a bit.
 
 See to L<JSON::PP SUPPORT METHODS>.
+
+=head1 COMMON OBJECT-ORIENTED INTERFACE
 
 =over
 
@@ -1351,11 +1388,11 @@ Returns all the above properties as a hash reference.
 =head1 JSON::PP SUPPORT METHODS
 
 The below methods are JSON::PP own methods, so when C<JSON> works
-with JSON::PP (i.e. the created object is a JSON::PP objefct), available.
+with JSON::PP (i.e. the created object is a JSON::PP object), available.
 See to L<JSON::PP/JSON::PP OWN METHODS> in detail.
 
 If you use C<JSON> with additonal C<-support_by_pp>, some methods
-are available even with JSON::XS. See to L<COMMON OBJECT-ORIENTED INTERFACE>.
+are available even with JSON::XS. See to L<USE PP FEATURES EVEN THOUGH XS BACKEND>.
 
    BEING { $ENV{PERL_JSON_BACKEND} = 'JSON::XS' }
    
@@ -1409,8 +1446,15 @@ If C<$enable> is true (or missing), then C<decode> will convert
 the big integer Perl cannot handle as integer into a L<Math::BigInt>
 object and convert a floating number (any) into a L<Math::BigFloat>.
 
-See to L<MAPPING> aboout the conversion of JSON number.
+On the contary, C<encode> converts C<Math::BigInt> objects and C<Math::BigFloat>
+objects into JSON numbers with C<allow_blessed> enable.
 
+   $json->allow_nonref->allow_blessed->allow_bignum;
+   $bigfloat = $json->decode('2.000000000000000000000000001');
+   print $json->encode($bigfloat);
+   # => 2.000000000000000000000000001
+
+See to L<MAPPING> aboout the conversion of JSON number.
 
 =item $json = $json->loose([$enable])
 
@@ -1433,12 +1477,21 @@ JSON backend modules encode strings without escaping slash.
 If C<$enable> is true (or missing), then C<encode> will escape slashes.
 
 
+=item $json = $json->as_nonblessed
+
+(EXPERIMENTAL)
+If C<$enable> is true (or missing), then C<encode> will convert
+a blessed hash reference or a blessed array reference (contains
+other blessed references) into JSON members and arrays.
+
+This feature is effective only when C<allow_blessed> is enable.
+
+
 =item $json = $json->indent_length($length)
 
 With JSON::XS, The indent space length is 3 and cannot be changed.
 With JSON::PP, it sets the indent space length with the given $length.
 The default is 3. The acceptable range is 0 to 15.
-
 
 
 =item $json = $json->sort_by($function_name)
@@ -1501,7 +1554,7 @@ the Perl level, there is no difference between those as Perl handles all
 the conversion details, but an integer may take slightly less memory and
 might represent more values exactly than (floating point) numbers.
 
-If the number consists of digits only, JSON::XS will try to represent
+If the number consists of digits only, C<JSON> will try to represent
 it as an integer value. If that fails, it will try to represent it as
 a numeric (floating point) value if that is possible without loss of
 precision. Otherwise it will preserve the number as a string value.
@@ -1596,6 +1649,11 @@ Blessed objects are not allowed. JSON currently tries to encode their
 underlying representation (hash- or arrayref), but this behaviour might
 change in future versions.
 
+With JSON::PP as the backend, if C<as_nonblessed> is enable, then C<encode>
+converts blessed hash references or blessed array references (contains
+other blessed references) into JSON members and arrays.
+
+
 =item simple scalars
 
 Simple Perl scalars (any scalar that is not a reference) are the most
@@ -1630,6 +1688,13 @@ You can force the type to be a number by numifying it:
 
 You can not currently output JSON booleans or force the type in other,
 less obscure, ways. Tell me if you need this capability.
+
+=item Big Number
+
+With JSON::PP as the backend, if C<allow_bignum> is enable, then
+C<encode> converts C<Math::BigInt> objects and C<Math::BigFloat>
+objects into JSON numbers.
+
 
 =back
 
@@ -1667,12 +1732,12 @@ equivalent to:
 
 =item Exported objToJson (advanced)
 
-  $flags = {allow_blessed => 1, convert_bleesed => 1};
+  $flags = {allow_blessed => 1, allow_barekey => 1};
   to_json($perl_scalar, $flags);
 
 equivalent to:
 
-  $JSON::ConvBlessed = 1;
+  $JSON::BareKey = 1;
   objToJson($perl_scalar);
 
 =item jsonToObj as object method
@@ -1709,7 +1774,9 @@ To change indent length, use C<indent_length>.
 
 =item $JSON::ConvBlessed
 
-  $json->allow_blessed->convert_bleesed->encode($perl_scalar)
+(Only with JSON::PP, if C<-support_by_pp> is not used.)
+
+  $json->allow_blessed->as_nonbleesed->encode($perl_scalar)
 
 =item $JSON::QuotApos
 
@@ -1830,7 +1897,7 @@ The relese of this new version owes to the courtesy of Marc Lehmann.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2005-2007 by Makamaka Hannyaharamitu
+Copyright 2005-2008 by Makamaka Hannyaharamitu
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 
