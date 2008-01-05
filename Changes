@@ -13,6 +13,18 @@ In this version, JSON was totally rewritten.
 
 ##########################################################################
 
+2.04  Sat Jan  5 16:10:01 2008
+	[JSON]
+	- fixed a document typo pointed by kawasaki@annocpan
+	- make DATA handle closed for error mssages in support_by_pp mode.
+	- switched JSON::Backend::XS::Supportable wrapper de/encode
+             to changing symbolic tables for croak messages and speed.
+	- fixed support_by_pp setting
+
+	[JSON::PP] 2.04
+	- enhanced the error message compatiblity to XS.
+
+
 2.03  Fri Jan  4 14:10:58 2008
 	[JSON]
 	- fixed the description - Transition ways from 1.xx to 2.xx.

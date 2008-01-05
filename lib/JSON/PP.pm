@@ -11,7 +11,7 @@ use Carp ();
 use B ();
 #use Devel::Peek;
 
-$JSON::PP::VERSION = '2.03';
+$JSON::PP::VERSION = '2.04';
 
 @JSON::PP::EXPORT = qw(encode_json decode_json from_json to_json);
 
@@ -465,7 +465,7 @@ sub allow_bigint {
             }
 
             if ($type eq 'CODE') {
-                encode_error("JSON can only reference.");
+                encode_error("encountered $value, but JSON can only represent references to arrays or hashes");
             }
             else {
                 encode_error("cannot encode reference.");
@@ -845,10 +845,10 @@ BEGIN {
             }
             elsif($ch eq '/'){
                 next_chr();
-                if($ch eq '/'){
+                if(defined $ch and $ch eq '/'){
                     1 while(defined(next_chr()) and $ch ne "\n" and $ch ne "\r");
                 }
-                elsif($ch eq '*'){
+                elsif(defined $ch and $ch eq '*'){
                     next_chr();
                     while(1){
                         if(defined $ch){
@@ -869,7 +869,8 @@ BEGIN {
                     next;
                 }
                 else{
-                    decode_error("Syntax decode_error (whitespace)");
+                    $at--;
+                    decode_error("malformed JSON string, neither array, object, number, string or atom");
                 }
             }
             else{
@@ -1037,11 +1038,10 @@ BEGIN {
 
         $at--; # for decode_error report
 
-        decode_error("Syntax decode_error (word) 'null' expected")  if ($word =~ /^n/);
-        decode_error("Syntax decode_error (word) 'true' expected")  if ($word =~ /^t/);
-        decode_error("Syntax decode_error (word) 'false' expected") if ($word =~ /^f/);
-        decode_error("Syntax decode_error (word)" .
-                        " malformed json string, neither array, object, number, string or atom");
+        decode_error("'null' expected")  if ($word =~ /^n/);
+        decode_error("'true' expected")  if ($word =~ /^t/);
+        decode_error("'false' expected") if ($word =~ /^f/);
+        decode_error("malformed JSON string, neither array, object, number, string or atom");
     }
 
 
