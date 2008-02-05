@@ -5,7 +5,7 @@ use strict;
 
 my @properties;
 
-$JSON::PP56::VERSION = '1.02';
+$JSON::PP56::VERSION = '1.03';
 
 BEGIN {
     sub utf8::is_utf8 {
@@ -16,23 +16,58 @@ BEGIN {
         }
     }
 
+
     sub utf8::upgrade {
         ; # noop;
     }
 
-    sub utf8::downgrade {
-        ; # noop;
+
+    sub utf8::downgrade (\$;$) {
+        return 1 unless ( utf8::is_utf8( ${$_[0]} ) );
+
+        if ( _is_valid_utf8(${$_[0]}) ) {
+            my $downgrade;
+            for my $c ( unpack("U*", ${$_[0]}) ) {
+                if ( $c < 256 ) {
+                    $downgrade .= pack("C", $c);
+                }
+                else {
+                    $downgrade .= pack("U", $c);
+                }
+            }
+            ${$_[0]} = $downgrade;
+            return 1;
+        }
+        else {
+            Carp::croak("Wide character in subroutine entry") unless ( $_[1] );
+            0;
+        }
     }
 
+
     sub utf8::encode (\$) { # UTF8 flag off
-        ${$_[0]} = pack("C*", unpack("C*", ${$_[0]}));
+        if ( utf8::is_utf8( ${$_[0]} ) ) {
+            ${$_[0]} = pack( "C*", unpack( "C*", ${$_[0]} ) );
+        }
+        else {
+            ${$_[0]} = pack( "U*", map {
+                if ( $_ > 127 ) {
+                    unpack ( "C*", pack("U*", $_) );
+                }
+                else {
+                    $_;
+                }
+            } unpack( "C*", ${$_[0]} ) );
+        }
     }
+
 
     sub utf8::decode (\$) { # UTF8 flag on
         if ( _is_valid_utf8(${$_[0]}) ) {
             ${$_[0]} = pack("U*", unpack("U*", ${$_[0]}));
         }
     }
+
 
     *JSON::PP::JSON_PP_encode_ascii      = \&_encode_ascii;
     *JSON::PP::JSON_PP_encode_latin1     = \&_encode_latin1;

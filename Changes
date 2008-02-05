@@ -13,6 +13,17 @@ In this version, JSON was totally rewritten.
 
 ##########################################################################
 
+2.05  Tue Feb  5 13:57:19 2008
+	[JSON::PP]
+	- enhanced some XS compatibilities of de/encode.
+	- now decode_error can dump high (>127) chars.
+	- enhanced the XS combatilbity of the decoding error.
+	- fixed the utf8 checker while decoding (is_valid_utf8).
+	- implemented utf8::downgrade in JSON::PP56.
+	- enhanced utf8::encode in JSON::PP56.
+	- made utf8::downgrade return a true in JSON::PP5005.
+
+
 2.04  Sat Jan  5 16:10:01 2008
 	[JSON]
 	- fixed a document typo pointed by kawasaki@annocpan

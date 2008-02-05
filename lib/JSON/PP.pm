@@ -11,7 +11,7 @@ use Carp ();
 use B ();
 #use Devel::Peek;
 
-$JSON::PP::VERSION = '2.04';
+$JSON::PP::VERSION = '2.05';
 
 @JSON::PP::EXPORT = qw(encode_json decode_json from_json to_json);
 
@@ -270,6 +270,7 @@ sub allow_bigint {
 ###
 ### Perl => JSON
 ###
+
 
 { # Convert
 
@@ -642,13 +643,14 @@ BEGIN {
     my $at;   # offset
     my $ch;   # 1chracter
     my $len;  # text length (changed according to UTF8 or NON UTF8)
-
+    # INTERNAL
     my $is_utf8;        # must be with UTF8 flag
-    my $depth;
-    my $encoding;
-    my $is_valid_utf8;
-
-    my $utf8;           # 
+    my $depth;          # nest counter
+    my $encoding;       # json text encoding
+    my $is_valid_utf8;  # temp variable
+    my $utf8_len;       # utf8 byte length
+    # FLAGS
+    my $utf8;           # must be utf8
     my $max_depth;      # max nest nubmer of objects and arrays
     my $max_size;
     my $relaxed;
@@ -681,9 +683,16 @@ BEGIN {
         ($utf8, $relaxed, $loose, $allow_bigint, $allow_barekey, $singlequote)
             = @{$idx}[P_UTF8, P_RELAXED, P_LOOSE .. P_ALLOW_SINGLEQUOTE];
 
-        $is_utf8 = 1 if (utf8::is_utf8($text));
+        $is_utf8 = 1 if ( $utf8 or utf8::is_utf8( $text ) );
 
-        $len  = length $text;
+        if ( $utf8 ) {
+            utf8::downgrade( $text, 1 ) or Carp::croak("Wide character in subroutine entry");
+        }
+        else {
+            utf8::upgrade( $text );
+        }
+
+        $len = length $text;
 
         ($max_depth, $max_size, $cb_object, $cb_sk_object, $F_HOOK)
              = @{$self}{qw/max_depth  max_size cb_object cb_sk_object F_HOOK/};
@@ -744,8 +753,10 @@ BEGIN {
     }
 
     sub string {
-        my ($i,$s,$t,$u);
+        my ($i, $s, $t, $u);
         my $utf16;
+
+        ($is_valid_utf8, $utf8_len) = ('', 0);
 
         $s = ''; # basically UTF8 flag on
 
@@ -816,15 +827,15 @@ BEGIN {
                 }
                 else{
                     if ($utf8) {
-                        use bytes;
-                        if( hex(unpack('H*', $ch))  > 255 or !is_valid_utf8($ch) ) {
-                            $at--; 
+                        if( !is_valid_utf8($ch) ) {
+                            $at -= $utf8_len;
                             decode_error("malformed UTF-8 character in JSON string");
                         }
                     }
 
                     if (!$loose) {
                         if ($ch =~ /[\x00-\x1f\x22\x5c]/)  { # '/' ok
+                            $at--;
                             decode_error('invalid character encountered while parsing JSON string');
                         }
                     }
@@ -886,7 +897,6 @@ BEGIN {
             }
         }
     }
-
 
 
     sub array {
@@ -1150,8 +1160,20 @@ BEGIN {
 
 
     sub is_valid_utf8 {
-        $is_valid_utf8 .= $_[0];
-        $is_valid_utf8 =~ /(?:
+        unless ( $utf8_len ) {
+            $utf8_len = $_[0] =~ /[\x00-\x7F]/  ? 1
+                      : $_[0] =~ /[\xC2-\xDF]/  ? 2
+                      : $_[0] =~ /[\xE0-\xEF]/  ? 3
+                      : $_[0] =~ /[\xF0-\xF4]/  ? 4
+                      : 0
+                      ;
+        }
+
+        return !($utf8_len = 1) unless ( $utf8_len );
+
+        return 1 if (length ($is_valid_utf8 .= $_[0] ) < $utf8_len); # continued
+
+        return ( $is_valid_utf8 =~ s/^(?:
              [\x00-\x7F]
             |[\xC2-\xDF][\x80-\xBF]
             |[\xE0][\xA0-\xBF][\x80-\xBF]
@@ -1161,7 +1183,8 @@ BEGIN {
             |[\xF0][\x90-\xBF][\x80-\xBF][\x80-\xBF]
             |[\xF1-\xF3][\x80-\xBF][\x80-\xBF][\x80-\xBF]
             |[\xF4][\x80-\x8F][\x80-\xBF][\x80-\xBF]
-        )/xg;
+        )$//x and !($utf8_len = 0) ); # if valid, make $is_valid_utf8 empty and rest $utf8_len.
+
     }
 
 
@@ -1169,16 +1192,38 @@ BEGIN {
         my $error  = shift;
         my $no_rep = shift;
         my $str    = defined $text ? substr($text, $at) : '';
+        my $mess   = '';
+        my $type   = $] >= 5.008           ? 'U*'
+                   : $] <  5.006           ? 'C*'
+                   : utf8::is_utf8( $str ) ? 'U*' # 5.6
+                   : 'C*'
+                   ;
 
-        unless (length $str) { $str = '(end of string)'; }
+        for my $c ( unpack( $type, $str ) ) { # emulate pv_uni_display() ?
+            $mess .=  $c == 0x07 ? '\a'
+                    : $c == 0x09 ? '\t'
+                    : $c == 0x0a ? '\n'
+                    : $c == 0x0d ? '\r'
+                    : $c == 0x0c ? '\f'
+                    : $c <  0x20 ? sprintf('\x{%x}', $c)
+                    : $c <  0x80 ? chr($c)
+                    : sprintf('\x{%x}', $c)
+                    ;
+            if ( length $mess >= 20 ) {
+                $mess .= '...';
+                last;
+            }
+        }
 
-        if ($no_rep) {
-            Carp::croak "$error";
+        unless ( length $mess ) {
+            $mess = '(end of string)';
         }
-        else {
-            Carp::croak "$error, at character offset $at [\"$str\"]";
-        }
+
+        Carp::croak (
+            $no_rep ? "$error" : "$error, at character offset $at [\"$mess\"]"
+        );
     }
+
 
     sub _json_object_hook {
         my $o    = $_[0];
@@ -1199,6 +1244,7 @@ BEGIN {
             return $val[0];
         }
     }
+
 
     sub PP_decode_box {
         {

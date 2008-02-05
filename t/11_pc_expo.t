@@ -29,7 +29,14 @@ $js  = q|[1.23E-4]|;
 $obj = $pc->decode($js);
 is($obj->[0], 0.000123, 'digit 1.23E-4');
 $js = $pc->encode($obj);
-is($js,'[0.000123]', 'digit 1.23E-4');
+
+if ( $js =~ /\[1/ ) { # for 5.6.2 on Darwin 8.10.0
+    like($js, qr/[1.23[eE]-04]/, 'digit 1.23E-4');
+}
+else {
+    is($js,'[0.000123]', 'digit 1.23E-4');
+}
+
 
 
 $js  = q|[1.01e+30]|;
