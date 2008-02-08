@@ -11,7 +11,7 @@ use Carp ();
 use B ();
 #use Devel::Peek;
 
-$JSON::PP::VERSION = '2.05';
+$JSON::PP::VERSION = '2.06';
 
 @JSON::PP::EXPORT = qw(encode_json decode_json from_json to_json);
 
@@ -389,20 +389,27 @@ sub allow_bigint {
             }
         }
 
+        # In the old Perl verions, tied hashes in bool context didn't work.
+        # So, we can't use such a way (%res ? a : b)
+        my $has;
+
         for my $k (keys %$obj) {
             my $v = $obj->{$k};
             $res{$k} = $self->object_to_json($v) || $self->value_to_json($v);
+            $has = 1 unless ( $has );
         }
 
         --$depth;
         $self->_down_indent() if ($indent);
 
-        return '{' . $pre
-                   . join(",$pre", map { utf8::decode($_) if ($] < 5.008);
-                     string_to_json($self, $_)
-                   . $del . $res{$_} } _sort($self, \%res))
-                   . $post
-                   . '}';
+        return '{' . ( $has ? $pre : '' )                                                   # indent
+                   . ( $has ? join(",$pre", map { utf8::decode($_) if ($] < 5.008);         # key for Perl 5.6
+                                                string_to_json($self, $_) . $del . $res{$_} # key : value
+                                            } _sort( $self, \%res )
+                             ) . $post                                                      # indent
+                           : ''
+                     )
+             . '}';
     }
 
 
@@ -429,7 +436,7 @@ sub allow_bigint {
         --$depth;
         $self->_down_indent() if ($indent);
 
-        return '[' . $pre . join(",$pre" ,@res) . $post . ']';
+        return '[' . ( @res ? $pre : '' ) . ( @res ? join( ",$pre", @res ) . $post : '' ) . ']';
     }
 
 
@@ -559,7 +566,7 @@ sub allow_bigint {
     }
 
 
-    sub _down_indent { $_[0]->{indent_count}--; }
+    sub _down_indent { $indent_count--; }
 
 
     sub PP_encode_box {
