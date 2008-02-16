@@ -3,10 +3,12 @@ use strict;
 use Test::More;
 BEGIN { plan tests => 3 };
 
-BEGIN { $ENV{PERL_JSON_BACKEND} = 0; }
+BEGIN { $ENV{PERL_JSON_BACKEND} = 1; }
 
 use JSON -convert_blessed_universally;
 
+SKIP: {
+    skip "can't use JSON::XS.", 3, unless( JSON->backend->is_xs );
 
 my $obj  = Test->new( [ 1, 2, {foo => 'bar'} ] );
 
@@ -24,6 +26,7 @@ $json->allow_blessed(0)->convert_blessed(1);
 
 is( $json->encode( $obj ), '[1,2,{"foo":"bar"},"hoge"]'  );
 
+}
 
 package Test;
 

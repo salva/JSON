@@ -54,5 +54,6 @@ t/xe04support_by_pp.t
 t/xe05_indent_length.t
 t/xe08_decode.t
 t/xe10_bignum.t
+t/xe11_as_nonblessed.t
 
 META.yml                                 Module meta-data (added by MakeMaker)

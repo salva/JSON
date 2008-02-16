@@ -13,6 +13,17 @@ In this version, JSON was totally rewritten.
 
 ##########################################################################
 
+2.07  Sat Feb 16 15:52:29 2008
+	- experimentally added -convert_blessed_universally to define
+	    UNIVERSAL::TO_JSON subroutine.
+
+              JSON -convert_blessed_universally;
+              $json->convert_blessed->encode( $blessed );
+
+	- and as_nonbleesed is obsoleted (not yet removed). OK?
+	- fixed t/04_pretty.t.
+
+
 2.06  Fri Feb  8 16:21:59 2008
 	[JSON::PP] 2.06
 	- enhanced the XS compatibility for pretty-printing

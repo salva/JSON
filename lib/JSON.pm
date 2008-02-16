@@ -7,7 +7,7 @@ use base qw(Exporter);
 @JSON::EXPORT = qw(from_json to_json jsonToObj objToJson encode_json decode_json);
 
 BEGIN {
-    $JSON::VERSION = '2.06';
+    $JSON::VERSION = '2.07';
     $JSON::DEBUG   = 0 unless (defined $JSON::DEBUG);
 }
 
@@ -41,6 +41,7 @@ my @PPOnlyMethods = qw/
 my $_INSTALL_DONT_DIE  = 1; # When _load_xs fails to load XS, don't die.
 my $_INSTALL_ONLY      = 2; # Don't call _set_methods()
 my $_ALLOW_UNSUPPORTED = 0;
+my $_UNIV_CONV_BLESSED = 0;
 
 
 # Check the environment variable to decide worker module. 
@@ -80,6 +81,19 @@ sub import {
         }
         elsif ($tag eq '-no_export') {
             $no_export++, next;
+        }
+        elsif ( $tag eq '-convert_blessed_universally' ) {
+            eval q|
+                require B;
+                *UNIVERSAL::TO_JSON = sub {
+                    my $b_obj = B::svref_2object( $_[0] );
+                    return    $b_obj->isa('B::HV') ? { %{ $_[0] } }
+                            : $b_obj->isa('B::AV') ? [ @{ $_[0] } ]
+                            : undef
+                            ;
+                }
+            | if ( !$_UNIV_CONV_BLESSED++ );
+            next;
         }
         push @what_to_export, $tag;
     }
@@ -569,7 +583,7 @@ JSON - JSON (JavaScript Object Notation) encoder/decoder
 
 =head1 VERSION
 
-    2.04
+    2.07
 
 
 =head1 DESCRIPTION
@@ -1162,6 +1176,24 @@ This setting does not yet influence C<decode> in any way.
 If C<$enable> is false, then the C<allow_blessed> setting will decide what
 to do when a blessed object is found.
 
+If use C<JSON> with C<-convert_blessed_universally>, the C<UNIVERSAL::TO_JSON>
+subroutine is defined as the below code:
+
+   *UNIVERSAL::TO_JSON = sub {
+       my $b_obj = B::svref_2object( $_[0] );
+       return    $b_obj->isa('B::HV') ? { %{ $_[0] } }
+               : $b_obj->isa('B::AV') ? [ @{ $_[0] } ]
+               : undef
+               ;
+   }
+
+This will cause that C<encode> method converts simple blessed objects into
+JSON objects as non-blessed object.
+
+   JSON -convert_blessed_universally;
+   $json->allow_blessed->convert_blessed->encode( $blessed_object )
+
+This feature is experimental and may be removed in the future.
 
 =item $json = $json->filter_json_object([$coderef])
 
@@ -1476,13 +1508,20 @@ If C<$enable> is true (or missing), then C<encode> will escape slashes.
 
 =item $json = $json->as_nonblessed
 
-(EXPERIMENTAL)
+(OBSOLETED)
 If C<$enable> is true (or missing), then C<encode> will convert
 a blessed hash reference or a blessed array reference (contains
 other blessed references) into JSON members and arrays.
 
 This feature is effective only when C<allow_blessed> is enable.
 
+Since C<JSON> 2.07, there is the C<convert_blessed_universally> mode.
+(This switch is experimental too.)
+
+   JSON -convert_blessed_universally;
+   $json->allow_blessed->convert_blessed->encode( $blessed_object )
+
+See to L<convert_blessed>.
 
 =item $json = $json->indent_length($length)
 
@@ -1646,10 +1685,14 @@ Blessed objects are not allowed. JSON currently tries to encode their
 underlying representation (hash- or arrayref), but this behaviour might
 change in future versions.
 
-With JSON::PP as the backend, if C<as_nonblessed> is enable, then C<encode>
-converts blessed hash references or blessed array references (contains
-other blessed references) into JSON members and arrays.
+With C<convert_blessed_universally> mode,  C<encode> converts blessed
+hash references or blessed array references (contains other blessed references)
+into JSON members and arrays.
 
+   use JSON -convert_blessed_universally;
+   JSON->new->allow_blessed->convert_blessed->encode( $blessed_object );
+
+See to L<convert_blessed>.
 
 =item simple scalars
 
@@ -1771,9 +1814,7 @@ To change indent length, use C<indent_length>.
 
 =item $JSON::ConvBlessed
 
-(Only with JSON::PP, if C<-support_by_pp> is not used.)
-
-  $json->allow_blessed->as_nonblessed->encode($perl_scalar)
+use C<-convert_blessed_universally>. See to L<convert_blessed>.
 
 =item $JSON::QuotApos
 

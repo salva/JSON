@@ -42,7 +42,7 @@ SYNOPSIS
      use JSON -support_by_pp;
 
 VERSION
-        2.04
+        2.07
 
 DESCRIPTION
      ************************** CAUTION ********************************
@@ -549,6 +549,25 @@ COMMON OBJECT-ORIENTED INTERFACE
         If $enable is false, then the "allow_blessed" setting will decide
         what to do when a blessed object is found.
 
+        If use "JSON" with "-convert_blessed_universally", the
+        "UNIVERSAL::TO_JSON" subroutine is defined as the below code:
+
+           *UNIVERSAL::TO_JSON = sub {
+               my $b_obj = B::svref_2object( $_[0] );
+               return    $b_obj->isa('B::HV') ? { %{ $_[0] } }
+                       : $b_obj->isa('B::AV') ? [ @{ $_[0] } ]
+                       : undef
+                       ;
+           }
+
+        This will cause that "encode" method converts simple blessed objects
+        into JSON objects as non-blessed object.
+
+           JSON -convert_blessed_universally;
+           $json->allow_blessed->convert_blessed->encode( $blessed_object )
+
+        This feature is experimental and may be removed in the future.
+
     $json = $json->filter_json_object([$coderef])
         When $coderef is specified, it will be called from "decode" each
         time it decodes a JSON object. The only argument passed to the
@@ -827,11 +846,19 @@ JSON::PP SUPPORT METHODS
         If $enable is true (or missing), then "encode" will escape slashes.
 
     $json = $json->as_nonblessed
-        (EXPERIMENTAL) If $enable is true (or missing), then "encode" will
+        (OBSOLETED) If $enable is true (or missing), then "encode" will
         convert a blessed hash reference or a blessed array reference
         (contains other blessed references) into JSON members and arrays.
 
         This feature is effective only when "allow_blessed" is enable.
+
+        Since "JSON" 2.07, there is the "convert_blessed_universally" mode.
+        (This switch is experimental too.)
+
+           JSON -convert_blessed_universally;
+           $json->allow_blessed->convert_blessed->encode( $blessed_object )
+
+        See to "convert_blessed".
 
     $json = $json->indent_length($length)
         With JSON::XS, The indent space length is 3 and cannot be changed.
@@ -970,10 +997,14 @@ MAPPING
         their underlying representation (hash- or arrayref), but this
         behaviour might change in future versions.
 
-        With JSON::PP as the backend, if "as_nonblessed" is enable, then
-        "encode" converts blessed hash references or blessed array
-        references (contains other blessed references) into JSON members and
-        arrays.
+        With "convert_blessed_universally" mode, "encode" converts blessed
+        hash references or blessed array references (contains other blessed
+        references) into JSON members and arrays.
+
+           use JSON -convert_blessed_universally;
+           JSON->new->allow_blessed->convert_blessed->encode( $blessed_object );
+
+        See to "convert_blessed".
 
     simple scalars
         Simple Perl scalars (any scalar that is not a reference) are the
@@ -1076,9 +1107,7 @@ TIPS
           $json->allow_barekey->decode($json_text)
 
     $JSON::ConvBlessed
-        (Only with JSON::PP, if "-support_by_pp" is not used.)
-
-          $json->allow_blessed->as_nonblessed->encode($perl_scalar)
+        use "-convert_blessed_universally". See to "convert_blessed".
 
     $JSON::QuotApos
         (Only with JSON::PP, if "-support_by_pp" is not used.)
