@@ -13,11 +13,29 @@ In this version, JSON was totally rewritten.
 
 ##########################################################################
 
+2.08  Sat Apr 12 22:49:39 2008
+	[JSON]
+	- fixed JSON::Boolean inheritance mechanism.
+            with support_by_pp mode and using PP only support method,
+            JSON::Boolean did not work correctly.
+	    Thanks to hg[at]apteryx's point.
+
+	[JSON::PP] 2.07
+	- Now split into JSON::PP58 for Perl 5.8 and lator.
+	- made an error message compatible to JSON::XS
+            did not croak when TO_JSON method returns same object as passed.
+
+	[JSON::PP58]
+	- modified for Perls post 5.8.0 that don't have utf8::is_utf8.
+	    Thanks to Andreas Koenig.
+
+
 2.07  Sat Feb 16 15:52:29 2008
+	[JSON]
 	- experimentally added -convert_blessed_universally to define
 	    UNIVERSAL::TO_JSON subroutine.
 
-              JSON -convert_blessed_universally;
+              use JSON -convert_blessed_universally;
               $json->convert_blessed->encode( $blessed );
 
 	- and as_nonbleesed is obsoleted (not yet removed). OK?

@@ -7,7 +7,7 @@ use base qw(Exporter);
 @JSON::EXPORT = qw(from_json to_json jsonToObj objToJson encode_json decode_json);
 
 BEGIN {
-    $JSON::VERSION = '2.07';
+    $JSON::VERSION = '2.08';
     $JSON::DEBUG   = 0 unless (defined $JSON::DEBUG);
 }
 
@@ -424,6 +424,9 @@ sub support_by_pp {
         $pkg->_make_unsupported_method($method => $type);
     }
 
+    push @{"JSON::XS::Boolean::ISA"}, qw(JSON::PP::Boolean);
+    push @{"JSON::PP::Boolean::ISA"}, qw(JSON::Boolean);
+
     $JSON::DEBUG and Carp::carp("set -support_by_pp mode.");
 
     return 1;
@@ -573,11 +576,11 @@ JSON - JSON (JavaScript Object Notation) encoder/decoder
  # simple interface
  $utf8_encoded_json_text = encode_json $perl_hash_or_arrayref;
  $perl_hash_or_arrayref  = decode_json $utf8_encoded_json_text;
-
-
+ 
+ 
  # If you want to use PP only support features, call with '-support_by_pp'
  # When XS unsupported feature is enable, using PP de/encode.
-
+ 
  use JSON -support_by_pp;
 
 
@@ -627,10 +630,10 @@ Basically see to L<JSON::XS>.
 
 =item * correct unicode handling
 
-This module (i.e. backend modules) knows how to handle Unicode, and even documents
-how and when it does so.
+This module (i.e. backend modules) knows how to handle Unicode, documents
+how and when it does so, and even documents what "correct" means.
 
-Even though there is a limitation, this feature is available since Perl 5.6.
+Even though there are limitations, this feature is available since Perl version 5.6.
 
 JSON::XS requires Perl 5.8.2 (but works correctly in 5.8.8 or later), so in older versions
 C<JSON> sholud call JSON::PP as the backend which can be used since Perl 5.005.
@@ -639,7 +642,8 @@ With Perl 5.8.x JSON::PP works, but from 5.8.0 to 5.8.2, because of a Perl side 
 JSON::PP works slower in the versions. And in 5.005, the Unicode handling is not available.
 See to L<JSON::PP/UNICODE HANDLING ON PERLS> for more information.
 
-See also to L<JSON::XS/A FEW NOTES ON UNICODE AND PERL>.
+See also to L<JSON::XS/A FEW NOTES ON UNICODE AND PERL>
+and L<JSON::XS/ENCODING/CODESET_FLAG_NOTES>.
 
 
 =item * round-trip integrity
@@ -647,7 +651,8 @@ See also to L<JSON::XS/A FEW NOTES ON UNICODE AND PERL>.
 When you serialise a perl data structure using only datatypes supported by JSON,
 the deserialised data structure is identical on the Perl level.
 (e.g. the string "2.0" doesn't suddenly become "2" just because it looks
-like a number).
+like a number). There minor I<are> exceptions to this, read the MAPPING
+section below to learn about those.
 
 =item * strict checking of JSON correctness
 
@@ -659,18 +664,21 @@ See to L<JSON::XS/FEATURES> and L<JSON::PP/FEATURES>.
 
 =item * fast
 
-With JSON::XS, compared to other JSON modules, this module compares favourably
-in terms of speed, too.
+This module returns a JSON::XS object itself if avaliable.
+Compared to other JSON modules and other serialisers such as Storable,
+JSON::XS usually compares favourably in terms of speed, too.
 
+If not avaliable, C<JSON> returns a JSON::PP object instead of JSON::XS and
+it is very slow as pure-Perl.
 
 =item * simple to use
 
-This module has both a simple functional interface as well as an OO
-interface.
+This module has both a simple functional interface as well as an object
+oriented interface.
 
 =item * reasonably versatile output formats
 
-You can choose between the most compact guaranteed single-line format possible
+You can choose between the most compact guaranteed-single-line format possible
 (nice for simple line-based protocols), a pure-ascii format (for when your transport
 is not 8-bit clean, still supports the whole Unicode range), or a pretty-printed
 format (for when you want to read that stuff). Or you can combine those features
@@ -1588,22 +1596,23 @@ A JSON number becomes either an integer, numeric (floating point) or
 string scalar in perl, depending on its range and any fractional parts. On
 the Perl level, there is no difference between those as Perl handles all
 the conversion details, but an integer may take slightly less memory and
-might represent more values exactly than (floating point) numbers.
+might represent more values exactly than floating point numbers.
 
 If the number consists of digits only, C<JSON> will try to represent
 it as an integer value. If that fails, it will try to represent it as
 a numeric (floating point) value if that is possible without loss of
-precision. Otherwise it will preserve the number as a string value.
+precision. Otherwise it will preserve the number as a string value (in
+which case you lose roundtripping ability, as the JSON number will be
+re-encoded toa JSON string).
 
 Numbers containing a fractional or exponential part will always be
 represented as numeric (floating point) values, possibly at a loss of
-precision.
+precision (in which case you might lose perfect roundtripping ability, but
+the JSON number will still be re-encoded as a JSON number).
 
-This might create round-tripping problems as numbers might become strings,
-but as Perl is typeless there is no other way to do it.
-
-With JSON::PP, the big integers and the numeric can be optionally converted
-into L<Math::BigInt> and L<Math::BigFloat> objects.
+If the backend is JSON::PP and C<allow_bignum> is enable, the big integers 
+and the numeric can be optionally converted into L<Math::BigInt> and
+L<Math::BigFloat> objects.
 
 =item true, false
 
@@ -1681,9 +1690,11 @@ JSON::null returns C<undef>.
 
 =item blessed objects
 
-Blessed objects are not allowed. JSON currently tries to encode their
-underlying representation (hash- or arrayref), but this behaviour might
-change in future versions.
+Blessed objects are not directly representable in JSON. See the
+C<allow_blessed> and C<convert_blessed> methods on various options on
+how to deal with this: basically, you can choose between throwing an
+exception, encoding the reference as if it weren't blessed, or provide
+your own serialiser method.
 
 With C<convert_blessed_universally> mode,  C<encode> converts blessed
 hash references or blessed array references (contains other blessed references)
@@ -1698,8 +1709,8 @@ See to L<convert_blessed>.
 
 Simple Perl scalars (any scalar that is not a reference) are the most
 difficult objects to encode: JSON::XS and JSON::PP will encode undefined scalars as
-JSON null value, scalars that have last been used in a string context
-before encoding as JSON strings and anything else as number value:
+JSON C<null> values, scalars that have last been used in a string context
+before encoding as JSON strings, and anything else as number value:
 
    # dump as number
    encode_json [2]                      # yields [2]
@@ -1727,16 +1738,21 @@ You can force the type to be a number by numifying it:
    $x *= 1;     # same thing, the choise is yours.
 
 You can not currently output JSON booleans or force the type in other,
-less obscure, ways. Tell me if you need this capability.
+less obscure, ways. 
 
 =item Big Number
 
-With JSON::PP as the backend, if C<allow_bignum> is enable, then
+If the backend is JSON::PP and C<allow_bignum> is enable, 
 C<encode> converts C<Math::BigInt> objects and C<Math::BigFloat>
 objects into JSON numbers.
 
 
 =back
+
+=head1 JSON and YAML
+
+JSON is not a subset of YAML.
+See to L<JSON::XS/JSON and YAML>.
 
 
 =head1 TIPS

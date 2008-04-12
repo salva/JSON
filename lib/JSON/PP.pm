@@ -11,7 +11,7 @@ use Carp ();
 use B ();
 #use Devel::Peek;
 
-$JSON::PP::VERSION = '2.06';
+$JSON::PP::VERSION = '2.07';
 
 @JSON::PP::EXPORT = qw(encode_json decode_json from_json to_json);
 
@@ -41,7 +41,7 @@ use constant P_AS_NONBLESSED        => 17;
 
 BEGIN {
     my @xs_compati_bit_properties = qw(
-            utf8 indent canonical space_before space_after allow_nonref shrink
+            latin1 ascii utf8 indent canonical space_before space_after allow_nonref shrink
             allow_blessed convert_blessed relaxed
     );
     my @pp_bit_properties = qw(
@@ -49,28 +49,16 @@ BEGIN {
             allow_barekey escape_slash as_nonblessed
     );
 
-    # Perl version check, ascii() is enable?
-    # Helper module may set @JSON::PP::_properties.
+    # Perl version check, Unicode handling is enable?
+    # Helper module sets @JSON::PP::_properties.
 
-    if ($] >= 5.008) {
-        push @xs_compati_bit_properties, 'ascii', 'latin1';
+    my $helper = $] >= 5.008 ? 'JSON::PP58'
+               : $] >= 5.006 ? 'JSON::PP56'
+               :               'JSON::PP5005'
+               ;
 
-        if ($] == 5.008) {
-           require Encode;
-           *utf8::is_utf8 = *Encode::is_utf8;
-        }
-
-        *JSON_PP_encode_ascii      = *_encode_ascii;
-        *JSON_PP_encode_latin1     = *_encode_latin1;
-        *JSON_PP_decode_surrogates = *_decode_surrogates;
-        *JSON_PP_decode_unicode    = *_decode_unicode;
-    }
-    else {
-        my $helper = $] >= 5.006 ? 'JSON::PP56' : 'JSON::PP5005';
-        eval qq| require $helper |;
-        if ($@) { Carp::croak $@; }
-        push @xs_compati_bit_properties, @JSON::PP::_properties;
-    }
+    eval qq| require $helper |;
+    if ($@) { Carp::croak $@; }
 
     for my $name (@xs_compati_bit_properties, @pp_bit_properties) {
         my $flag_name = 'P_' . uc($name);
@@ -93,20 +81,6 @@ BEGIN {
                 \$_[0]->{PROPS}->[$flag_name] ? 1 : '';
             }
         /;
-    }
-
-    if ($] >= 5.008 and $] < 5.008003) { # join() in 5.8.0 - 5.8.2 is broken.
-        require subs;
-        subs->import('join');
-        eval q|
-            sub join {
-                return '' if (@_ < 2);
-                my $j   = shift;
-                my $str = shift;
-                for (@_) { $str .= $j . $_; }
-                return $str;
-            }
-        |;
     }
 
 }
@@ -350,8 +324,18 @@ sub allow_bigint {
             if (blessed($obj)) {
 
                 return $self->value_to_json($obj) if ( $obj->isa('JSON::PP::Boolean') );
-                return $self->object_to_json( $obj->TO_JSON() )
-                    if ( $convert_blessed and $obj->can('TO_JSON') );
+
+                if ( $convert_blessed and $obj->can('TO_JSON') ) {
+                    my $result = $obj->TO_JSON();
+                    if ( defined $result and $obj eq $result ) {
+                        encode_error( sprintf(
+                            "%s::TO_JSON method returned same object as was passed instead of a new one",
+                            ref $obj
+                        ) );
+                    }
+                    return $self->object_to_json( $result );
+                }
+
                 return "$obj" if ( $bignum and _is_bignum($obj) );
                 return $self->blessed_to_json($obj) if ($allow_blessed and $as_nonblessed);
 
@@ -613,6 +597,38 @@ sub _is_bignum {
     $_[0]->isa('Math::BigInt') or $_[0]->isa('Math::BigFloat');
 }
 
+sub _is_valid_utf8 {
+    my $str = $_[0];
+    my $is_utf8;
+
+    while ($str =~ /(?:
+          (
+             [\x00-\x7F]
+            |[\xC2-\xDF][\x80-\xBF]
+            |[\xE0][\xA0-\xBF][\x80-\xBF]
+            |[\xE1-\xEC][\x80-\xBF][\x80-\xBF]
+            |[\xED][\x80-\x9F][\x80-\xBF]
+            |[\xEE-\xEF][\x80-\xBF][\x80-\xBF]
+            |[\xF0][\x90-\xBF][\x80-\xBF][\x80-\xBF]
+            |[\xF1-\xF3][\x80-\xBF][\x80-\xBF][\x80-\xBF]
+            |[\xF4][\x80-\x8F][\x80-\xBF][\x80-\xBF]
+          )
+        | (.)
+    )/xg)
+    {
+#        if (defined $1) {
+#            $is_utf8 = 1 if (!defined $is_utf8);
+#        }
+#        else {
+#            $is_utf8 = 0 if (!defined $is_utf8);
+#            if ($is_utf8) { # eventually, not utf8
+#                return;
+#            }
+#        }
+    }
+
+    return $is_utf8;
+}
 
 
 #
@@ -1278,6 +1294,7 @@ sub _decode_surrogates { # from perlunicode
 sub _decode_unicode {
     return pack("U", hex shift);
 }
+
 
 
 ###############################

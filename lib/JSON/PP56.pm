@@ -5,7 +5,7 @@ use strict;
 
 my @properties;
 
-$JSON::PP56::VERSION = '1.03';
+$JSON::PP56::VERSION = '1.04';
 
 BEGIN {
     sub utf8::is_utf8 {
@@ -73,8 +73,6 @@ BEGIN {
     *JSON::PP::JSON_PP_encode_latin1     = \&_encode_latin1;
     *JSON::PP::JSON_PP_decode_surrogates = \&JSON::PP::_decode_surrogates;
     *JSON::PP::JSON_PP_decode_unicode    = \&JSON::PP::_decode_unicode;
-
-    push @JSON::PP::_properties, 'ascii', 'latin1';
 }
 
 
@@ -164,7 +162,7 @@ Makamaka Hannyaharamitu, E<lt>makamaka[at]cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2007 by Makamaka Hannyaharamitu
+Copyright 2007-2008 by Makamaka Hannyaharamitu
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 

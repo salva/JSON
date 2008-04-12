@@ -5,7 +5,7 @@ use strict;
 
 my @properties;
 
-$JSON::PP5005::VERSION = '1.04';
+$JSON::PP5005::VERSION = '1.05';
 
 BEGIN {
     *JSON::PP::JSON_PP_encode_ascii      = \&_encode_ascii;
@@ -39,8 +39,6 @@ BEGIN {
     sub B::SVp_NOK () { 0x02000000; }
 
     $INC{'bytes.pm'} = 1; # dummy
-
-    push @JSON::PP::_properties, 'ascii', 'latin1';
 }
 
 
@@ -141,7 +139,7 @@ Makamaka Hannyaharamitu, E<lt>makamaka[at]cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2007 by Makamaka Hannyaharamitu
+Copyright 2007-2008 by Makamaka Hannyaharamitu
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 
