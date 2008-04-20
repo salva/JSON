@@ -56,7 +56,7 @@ $message
 
 
 EOF
-
+sleep 3;
 
 WriteMakefile(
     'NAME'		=> 'JSON',

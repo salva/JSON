@@ -33,16 +33,15 @@ for my $name (@simples) {
 
 ok($json->get_max_depth == 512, 'get_max_depth default');
 $json->max_depth(7);
-ok($json->get_max_depth == 8, 'get_max_depth set 7 => 8');
+ok($json->get_max_depth == 7, 'get_max_depth set 7 => 7');
 $json->max_depth();
 ok($json->get_max_depth != 0, 'get_max_depth no arg');
 
-
-ok($json->get_max_size == 1, 'get_max_size default');
+ok($json->get_max_size == 0, 'get_max_size default');
 $json->max_size(7);
-ok($json->get_max_size == 8, 'get_max_size set 7 => 8');
+ok($json->get_max_size == 7, 'get_max_size set 7 => 7');
 $json->max_size();
-ok($json->get_max_size == 1, 'get_max_size no arg');
+ok($json->get_max_size == 0, 'get_max_size no arg');
 
 
 for my $name (@simples) {

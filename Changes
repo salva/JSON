@@ -13,12 +13,26 @@ In this version, JSON was totally rewritten.
 
 ##########################################################################
 
+2.09  Sun Apr 20 20:45:33 2008
+	[JSON]
+	- made compatible with JSON::XS 2.2 
+	- changed pod section totally.
+
+	[JSON::PP] 2.20001
+	- made compatible witg JSON::XS 2.2
+	    * lifted the log2 rounding restriction of max_depth and max_size.
+	    * incremental json parsing (EXPERIMENTAL).
+	    * allow_unknown/get_allow_unknown methods.
+	- the version format was changed.
+	    X.YYZZZ =>  X.YY is the same as JSON::XS. ZZZ is the PP own version.
+	- changed pod section totally.
+
 2.08  Sat Apr 12 22:49:39 2008
 	[JSON]
 	- fixed JSON::Boolean inheritance mechanism.
-            with support_by_pp mode and using PP only support method,
-            JSON::Boolean did not work correctly.
-	    Thanks to hg[at]apteryx's point.
+            If the backend is XS with support_by_pp mode and using PP only
+            support method, JSON::Boolean did not work correctly.
+            Thanks to hg[at]apteryx's point.
 
 	[JSON::PP] 2.07
 	- Now split into JSON::PP58 for Perl 5.8 and lator.
@@ -28,7 +42,6 @@ In this version, JSON was totally rewritten.
 	[JSON::PP58]
 	- modified for Perls post 5.8.0 that don't have utf8::is_utf8.
 	    Thanks to Andreas Koenig.
-
 
 2.07  Sat Feb 16 15:52:29 2008
 	[JSON]
@@ -41,12 +54,10 @@ In this version, JSON was totally rewritten.
 	- and as_nonbleesed is obsoleted (not yet removed). OK?
 	- fixed t/04_pretty.t.
 
-
 2.06  Fri Feb  8 16:21:59 2008
 	[JSON::PP] 2.06
 	- enhanced the XS compatibility for pretty-printing
 	    and the indent handling was broken!
-
 
 2.05  Tue Feb  5 13:57:19 2008
 	[JSON::PP] 2.05
@@ -58,7 +69,6 @@ In this version, JSON was totally rewritten.
 	- enhanced utf8::encode in JSON::PP56.
 	- made utf8::downgrade return a true in JSON::PP5005.
 
-
 2.04  Sat Jan  5 16:10:01 2008
 	[JSON]
 	- fixed a document typo pointed by kawasaki@annocpan
@@ -69,7 +79,6 @@ In this version, JSON was totally rewritten.
 
 	[JSON::PP] 2.04
 	- enhanced the error message compatiblity to XS.
-
 
 2.03  Fri Jan  4 14:10:58 2008
 	[JSON]
@@ -84,7 +93,6 @@ In this version, JSON was totally rewritten.
 	- added as_nonblessed option (experimental)
 	- cleaned up internal function names (renamed camel case names)
 
-
 2.02  Wed Dec 26 11:08:19 2007
 	[JSON]
 	- Now support_by_pp allows to use indent_length()
@@ -92,12 +100,10 @@ In this version, JSON was totally rewritten.
 	[JSON::PP] 2.02
 	- added get_indent_length
 
-
 2.01  Thu Dec 20 11:30:59 2007
 	[JSON]
 	- made the object methods - jsonToObj and objToJson
           available for a while with warnings.
-
 
 2.00  Wed Dec 19 11:48:04 2007
 	[JSON]
@@ -125,14 +131,12 @@ In this version, JSON was totally rewritten.
 	- JSON::PP56 encode() did not handle Unicode properly.
 	- added a section about the unicode handling on Perls to JSON::PP doc.
 
-
 1.99_04  Mon Dec 10 14:28:15 2007
 	[JSON]
 	- modified the tests and source for Perl 5.005
 
 	[JSON::PP] (2.0102)
 	- modified some prototypes in JSON::PP5005.
-
 
 1.99_03  Mon Dec 10 11:43:02 2007
 	[JSON]
@@ -147,14 +151,12 @@ In this version, JSON was totally rewritten.
 	- enhanced error messages for compatibility to JSON::XS.
 	- enhanced utf8::decode emulator and unpack emulator in JSON::PP56.
 
-
 1.99_02  Sun Dec  9 05:06:19 2007
         [JSON::PP] (2.0101)
 	- decoding with utf8 was broken in Perl 5.10
 	    as the behaviour of unpack was changed.
 	- added a fake in JSON::PP5005 (bytes.pm)
 	- added the missing file JONS::PP::Boolean.pm
-
 
 1.99_01  Sat Dec  8 12:01:43 2007
 	[JSON]

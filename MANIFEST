@@ -29,6 +29,8 @@ t/15_prefix.t
 t/16_tied.t
 t/17_relaxed.t
 t/18_json_checker.t
+t/19_incr.t
+t/20_unknown.t
 t/99_binary.t
 
 t/e00_func.t
@@ -42,7 +44,7 @@ t/e07_allow_singlequote.t
 t/e08_decode.t
 t/e09_encode.t
 t/e10_bignum.t
-t/e11_as_nonblessed.t
+t/e11_conv_blessed_univ.t
 
 t/x00_load.t
 t/x02_error.t
@@ -55,6 +57,7 @@ t/xe04support_by_pp.t
 t/xe05_indent_length.t
 t/xe08_decode.t
 t/xe10_bignum.t
+t/xe11_conv_blessed_univ.t
 t/xe12_boolean.t
 
 META.yml                                 Module meta-data (added by MakeMaker)

@@ -5,7 +5,7 @@ use strict;
 
 my @properties;
 
-$JSON::PP5005::VERSION = '1.05';
+$JSON::PP5005::VERSION = '1.06';
 
 BEGIN {
     *JSON::PP::JSON_PP_encode_ascii      = \&_encode_ascii;
@@ -118,6 +118,31 @@ sub _is_valid_utf8 {
 
     return $is_utf8;
 }
+
+
+sub JSON::PP::incr_parse {
+    local $Carp::CarpLevel = 1;
+    ( $_[0]->{_incr_parser} ||= JSON::PP::IncrParser->new )->incr_parse( @_ );
+}
+
+
+sub JSON::PP::incr_text {
+    $_[0]->{_incr_parser} ||= JSON::PP::IncrParser->new;
+
+    if ( $_[0]->{_incr_parser}->{incr_parsing} ) {
+        Carp::croak("incr_text can not be called when the incremental parser already started parsing");
+    }
+
+    $_[0]->{_incr_parser}->{incr_text} = $_[1] if ( @_ > 1 );
+    $_[0]->{_incr_parser}->{incr_text};
+}
+
+
+sub JSON::PP::incr_skip {
+    ( $_[0]->{_incr_parser} ||= JSON::PP::IncrParser->new )->incr_skip;
+}
+
+
 
 1;
 __END__

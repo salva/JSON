@@ -5,7 +5,7 @@ use strict;
 
 my @properties;
 
-$JSON::PP58::VERSION = '1.00';
+$JSON::PP58::VERSION = '1.01';
 
 
 BEGIN {
@@ -35,6 +35,27 @@ BEGIN {
         |;
     }
 
+}
+
+
+sub JSON::PP::incr_parse { #require JSON::PP::IncrParser;
+    local $Carp::CarpLevel = 1;
+    ( $_[0]->{_incr_parser} ||= JSON::PP::IncrParser->new )->incr_parse( @_ );
+}
+
+
+sub JSON::PP::incr_text : lvalue { #require JSON::PP::IncrParser;
+    $_[0]->{_incr_parser} ||= JSON::PP::IncrParser->new;
+
+    if ( $_[0]->{_incr_parser}->{incr_parsing} ) {
+        Carp::croak("incr_text can not be called when the incremental parser already started parsing");
+    }
+    $_[0]->{_incr_parser}->{incr_text};
+}
+
+
+sub JSON::PP::incr_skip { #require JSON::PP::IncrParser;
+    ( $_[0]->{_incr_parser} ||= JSON::PP::IncrParser->new )->incr_skip;
 }
 
 
