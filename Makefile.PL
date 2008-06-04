@@ -59,9 +59,9 @@ EOF
 sleep 3;
 
 WriteMakefile(
-    'NAME'		=> 'JSON',
-    'VERSION_FROM'	=> 'lib/JSON.pm', # finds $VERSION
-    'PREREQ_PM'		=> {
+    'NAME'          => 'JSON',
+    'VERSION_FROM'  => 'lib/JSON.pm', # finds $VERSION
+    'PREREQ_PM'     => {
               'Test::More'  => 0,
     },
     ($] >= 5.005 ?    ## Add these new keywords supported since 5.005

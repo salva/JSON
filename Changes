@@ -1,6 +1,6 @@
 Revision history for Perl extension JSON.
 
-## JSON version 2.00 #####################################################
+## JSON version 2.xx #####################################################
 
 In this version, JSON was totally rewritten.
 
@@ -13,9 +13,21 @@ In this version, JSON was totally rewritten.
 
 ##########################################################################
 
+2.10  Tue Jun  3 18:42:11 2008
+	[JSON]
+	- made compatible with JSON::XS 2.21
+	    * updated the document.
+	- added an item pointed by rt#32361 to the doc.
+
+	[JSON::PP] [JSON::PP58] [JSON::PP56] [JSON::PP5005]
+	- made compatible with JSON::XS 2.21
+	    * added incr_reset
+	- removed useless codes.
+
+
 2.09  Sun Apr 20 20:45:33 2008
 	[JSON]
-	- made compatible with JSON::XS 2.2 
+	- made compatible with JSON::XS 2.2
 	- changed pod section totally.
 
 	[JSON::PP] 2.20001

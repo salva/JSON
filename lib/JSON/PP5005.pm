@@ -5,7 +5,7 @@ use strict;
 
 my @properties;
 
-$JSON::PP5005::VERSION = '1.06';
+$JSON::PP5005::VERSION = '1.07';
 
 BEGIN {
     *JSON::PP::JSON_PP_encode_ascii      = \&_encode_ascii;
@@ -142,6 +142,10 @@ sub JSON::PP::incr_skip {
     ( $_[0]->{_incr_parser} ||= JSON::PP::IncrParser->new )->incr_skip;
 }
 
+
+sub JSON::PP::incr_reset {
+    ( $_[0]->{_incr_parser} ||= JSON::PP::IncrParser->new )->incr_reset;
+}
 
 
 1;

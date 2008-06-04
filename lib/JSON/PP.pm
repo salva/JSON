@@ -11,7 +11,7 @@ use Carp ();
 use B ();
 #use Devel::Peek;
 
-$JSON::PP::VERSION = '2.20001';
+$JSON::PP::VERSION = '2.21001';
 
 @JSON::PP::EXPORT = qw(encode_json decode_json from_json to_json);
 
@@ -598,38 +598,6 @@ sub _is_bignum {
     $_[0]->isa('Math::BigInt') or $_[0]->isa('Math::BigFloat');
 }
 
-sub _is_valid_utf8 {
-    my $str = $_[0];
-    my $is_utf8;
-
-    while ($str =~ /(?:
-          (
-             [\x00-\x7F]
-            |[\xC2-\xDF][\x80-\xBF]
-            |[\xE0][\xA0-\xBF][\x80-\xBF]
-            |[\xE1-\xEC][\x80-\xBF][\x80-\xBF]
-            |[\xED][\x80-\x9F][\x80-\xBF]
-            |[\xEE-\xEF][\x80-\xBF][\x80-\xBF]
-            |[\xF0][\x90-\xBF][\x80-\xBF][\x80-\xBF]
-            |[\xF1-\xF3][\x80-\xBF][\x80-\xBF][\x80-\xBF]
-            |[\xF4][\x80-\x8F][\x80-\xBF][\x80-\xBF]
-          )
-        | (.)
-    )/xg)
-    {
-#        if (defined $1) {
-#            $is_utf8 = 1 if (!defined $is_utf8);
-#        }
-#        else {
-#            $is_utf8 = 0 if (!defined $is_utf8);
-#            if ($is_utf8) { # eventually, not utf8
-#                return;
-#            }
-#        }
-    }
-
-    return $is_utf8;
-}
 
 
 #
@@ -1500,6 +1468,16 @@ sub incr_skip {
     my $self  = shift;
     $self->{incr_text} = substr( $self->{incr_text}, $self->{incr_c} );
     $self->{incr_p} = 0;
+}
+
+
+sub incr_reset {
+    my $self = shift;
+    $self->{incr_text}    = undef;
+    $self->{incr_p}       = 0;
+    $self->{incr_mode}    = 0;
+    $self->{incr_nest}    = 0;
+    $self->{incr_parsing} = 0;
 }
 
 ###############################

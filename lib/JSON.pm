@@ -7,13 +7,13 @@ use base qw(Exporter);
 @JSON::EXPORT = qw(from_json to_json jsonToObj objToJson encode_json decode_json);
 
 BEGIN {
-    $JSON::VERSION = '2.09';
+    $JSON::VERSION = '2.10';
     $JSON::DEBUG   = 0 unless (defined $JSON::DEBUG);
 }
 
 my $Module_XS  = 'JSON::XS';
 my $Module_PP  = 'JSON::PP';
-my $XS_Version = '2.2';
+my $XS_Version = '2.21';
 
 
 # XS and PP common methods
@@ -586,9 +586,9 @@ JSON - JSON (JavaScript Object Notation) encoder/decoder
 
 =head1 VERSION
 
-    2.09
+    2.10
 
-This version is compatible with JSON::XS B<2.2>.
+This version is compatible with JSON::XS B<2.21>.
 
 
 =head1 DESCRIPTION
@@ -648,7 +648,7 @@ and L<JSON::XS/ENCODING/CODESET_FLAG_NOTES>.
 
 =item * round-trip integrity
 
-When you serialise a perl data structure using only datatypes supported by JSON,
+When you serialise a perl data structure using only data types supported by JSON,
 the deserialised data structure is identical on the Perl level.
 (e.g. the string "2.0" doesn't suddenly become "2" just because it looks
 like a number). There minor I<are> exceptions to this, read the MAPPING
@@ -673,13 +673,13 @@ it is very slow as pure-Perl.
 
 =item * simple to use
 
-This module has both a simple functional interface as well as an object
-oriented interface.
+This module has both a simple functional interface as well as an
+object oriented interface interface.
 
 =item * reasonably versatile output formats
 
 You can choose between the most compact guaranteed-single-line format possible
-(nice for simple line-based protocols), a pure-ascii format (for when your transport
+(nice for simple line-based protocols), a pure-ASCII format (for when your transport
 is not 8-bit clean, still supports the whole Unicode range), or a pretty-printed
 format (for when you want to read that stuff). Or you can combine those features
 in whatever way you like.
@@ -1330,8 +1330,7 @@ With no argumnt, it returns all the above properties as a hash reference.
 
 =head1 INCREMENTAL PARSING
 
-In JSON::XS 2.2, incremental parsing feature of JSON
-texts was experimentally implemented.
+In JSON::XS 2.2, incremental parsing feature of JSON texts was implemented.
 Please check to L<JSON::XS/INCREMENTAL PARSING>.
 
 =over 4
@@ -1391,6 +1390,15 @@ This will reset the state of the incremental parser and will remove the
 parsed text from the input buffer. This is useful after C<incr_parse>
 died, in which case the input buffer and incremental parser state is left
 unchanged, to skip the text parsed so far and to reset the parse state.
+
+=item $json->incr_reset
+
+This completely resets the incremental parser, that is, after this call,
+it will be as if the parser had never parsed anything.
+
+This is useful if you want ot repeatedly parse JSON objects and want to
+ignore any trailing data, which means you have to reset the parser after
+each successful decode.
 
 =back
 
@@ -1894,6 +1902,13 @@ equivalent to:
 =item objToJson as object method
 
   $json->encode($perl_scalar);
+
+=item new method with parameters
+
+The C<new> method in 2.x takes any parameters no longer.
+You can set parameters instead;
+
+   $json = JSON->new->pretty;
 
 =item $JSON::Pretty, $JSON::Indent, $JSON::Delimiter
 

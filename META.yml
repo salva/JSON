@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                JSON
-version:             2.09
+version:             2.10
 abstract:            JSON (JavaScript Object Notation) encoder/decoder
 license:             ~
 author:              

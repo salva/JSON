@@ -5,7 +5,7 @@ use strict;
 
 my @properties;
 
-$JSON::PP58::VERSION = '1.01';
+$JSON::PP58::VERSION = '1.02';
 
 
 BEGIN {
@@ -38,13 +38,13 @@ BEGIN {
 }
 
 
-sub JSON::PP::incr_parse { #require JSON::PP::IncrParser;
+sub JSON::PP::incr_parse {
     local $Carp::CarpLevel = 1;
     ( $_[0]->{_incr_parser} ||= JSON::PP::IncrParser->new )->incr_parse( @_ );
 }
 
 
-sub JSON::PP::incr_text : lvalue { #require JSON::PP::IncrParser;
+sub JSON::PP::incr_text : lvalue {
     $_[0]->{_incr_parser} ||= JSON::PP::IncrParser->new;
 
     if ( $_[0]->{_incr_parser}->{incr_parsing} ) {
@@ -54,10 +54,14 @@ sub JSON::PP::incr_text : lvalue { #require JSON::PP::IncrParser;
 }
 
 
-sub JSON::PP::incr_skip { #require JSON::PP::IncrParser;
+sub JSON::PP::incr_skip {
     ( $_[0]->{_incr_parser} ||= JSON::PP::IncrParser->new )->incr_skip;
 }
 
+
+sub JSON::PP::incr_reset {
+    ( $_[0]->{_incr_parser} ||= JSON::PP::IncrParser->new )->incr_reset;
+}
 
 
 1;

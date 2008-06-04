@@ -5,7 +5,7 @@ use strict;
 
 my @properties;
 
-$JSON::PP56::VERSION = '1.05';
+$JSON::PP56::VERSION = '1.06';
 
 BEGIN {
     sub utf8::is_utf8 {
@@ -142,15 +142,13 @@ sub _is_valid_utf8 {
 }
 
 
-sub JSON::PP::incr_parse { #require JSON::PP::IncrParser;
+sub JSON::PP::incr_parse {
     local $Carp::CarpLevel = 1;
     ( $_[0]->{_incr_parser} ||= JSON::PP::IncrParser->new )->incr_parse( @_ );
 }
 
 
-sub JSON::PP::incr_text : lvalue { #require JSON::PP::IncrParser;
-#    ( $_[0]->{_incr_parser} ||= JSON::PP::IncrParser->new )->incr_text;
-#    my $incr_parse = ( $_[0]->{_incr_parser} ||= JSON::PP::IncrParser->new );
+sub JSON::PP::incr_text : lvalue {
     $_[0]->{_incr_parser} ||= JSON::PP::IncrParser->new;
 
     if ( $_[0]->{_incr_parser}->{incr_parsing} ) {
@@ -160,8 +158,13 @@ sub JSON::PP::incr_text : lvalue { #require JSON::PP::IncrParser;
 }
 
 
-sub JSON::PP::incr_skip { #require JSON::PP::IncrParser;
+sub JSON::PP::incr_skip {
     ( $_[0]->{_incr_parser} ||= JSON::PP::IncrParser->new )->incr_skip;
+}
+
+
+sub JSON::PP::incr_reset {
+    ( $_[0]->{_incr_parser} ||= JSON::PP::IncrParser->new )->incr_reset;
 }
 
 
