@@ -11,7 +11,7 @@ use Carp ();
 use B ();
 #use Devel::Peek;
 
-$JSON::PP::VERSION = '2.21001';
+$JSON::PP::VERSION = '2.21002';
 
 @JSON::PP::EXPORT = qw(encode_json decode_json from_json to_json);
 
@@ -741,7 +741,7 @@ BEGIN {
         return object() if($ch eq '{');
         return array()  if($ch eq '[');
         return string() if($ch eq '"' or ($singlequote and $ch eq "'"));
-        return number() if($ch =~ /\d/ or $ch eq '-');
+        return number() if($ch =~ /[0-9]/ or $ch eq '-');
         return word();
     }
 
@@ -960,12 +960,13 @@ BEGIN {
             return $o;
         }
         else {
-            while(defined $ch){
+            while (defined $ch) {
                 $k = ($allow_barekey and $ch ne '"' and $ch ne "'") ? bareKey() : string();
                 white();
 
                 if(!defined $ch or $ch ne ':'){
-                    decode_error("Bad object ; ':' expected");
+                    $at--;
+                    decode_error("':' expected");
                 }
 
                 next_chr();
@@ -1003,7 +1004,8 @@ BEGIN {
 
         }
 
-        decode_error("Bad object ; ,or } expected while parsing object/hash");
+        $at--;
+        decode_error(", or } expected while parsing object/hash");
     }
 
 

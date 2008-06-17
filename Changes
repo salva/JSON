@@ -13,6 +13,12 @@ In this version, JSON was totally rewritten.
 
 ##########################################################################
 
+2.11  Tue Jun 17 14:30:01 2008
+	[JSON::PP]
+	- fixed the decoding process which checks number.
+	    regarded number like chars in Unicode (ex. U+FF11) as [\d].
+	- enhanced error messages compatible to JSON::XS.
+
 2.10  Tue Jun  3 18:42:11 2008
 	[JSON]
 	- made compatible with JSON::XS 2.21
@@ -23,7 +29,6 @@ In this version, JSON was totally rewritten.
 	- made compatible with JSON::XS 2.21
 	    * added incr_reset
 	- removed useless codes.
-
 
 2.09  Sun Apr 20 20:45:33 2008
 	[JSON]
@@ -48,7 +53,7 @@ In this version, JSON was totally rewritten.
 
 	[JSON::PP] 2.07
 	- Now split into JSON::PP58 for Perl 5.8 and lator.
-	- made an error message compatible to JSON::XS
+	- enhanced an error message compatible to JSON::XS
             did not croak when TO_JSON method returns same object as passed.
 
 	[JSON::PP58]
