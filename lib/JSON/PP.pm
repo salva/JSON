@@ -11,7 +11,7 @@ use Carp ();
 use B ();
 #use Devel::Peek;
 
-$JSON::PP::VERSION = '2.21002';
+$JSON::PP::VERSION = '2.22000';
 
 @JSON::PP::EXPORT = qw(encode_json decode_json from_json to_json);
 
@@ -1326,7 +1326,7 @@ use constant INCR_M_STR  => 1; # inside string
 use constant INCR_M_BS   => 2; # inside backslash
 use constant INCR_M_JSON => 3; # outside anything, count nesting
 
-$JSON::PP::IncrParser::VERSION = '1.00';
+$JSON::PP::IncrParser::VERSION = '1.01';
 
 my $unpack_format = $] < 5.006 ? 'C*' : 'U*';
 
@@ -1334,6 +1334,7 @@ sub new {
     my ( $class ) = @_;
 
     bless {
+        incr_nest    => 0,
         incr_text    => undef,
         incr_parsing => 0,
         incr_p       => 0,
@@ -1432,7 +1433,7 @@ sub _incr_parse {
                     }
                 }
                 elsif ( $s eq ']' or $s eq '}' ) {
-                    last unless ( --$self->{incr_nest} );
+                    last if ( --$self->{incr_nest} <= 0 );
                 }
             }
 
@@ -1440,7 +1441,7 @@ sub _incr_parse {
 
         $self->{incr_p} = $p;
 
-        return if ( $self->{incr_mode} == INCR_M_JSON and $self->{incr_nest} );
+        return if ( $self->{incr_mode} == INCR_M_JSON and $self->{incr_nest} > 0 );
 
         return unless ( length substr( $self->{incr_text}, 0, $p ) );
 

@@ -13,6 +13,14 @@ In this version, JSON was totally rewritten.
 
 ##########################################################################
 
+2.12  Wed Jul 16 11:14:35 2008
+	[JSON]
+	- made compatible with JSON::XS 2.22
+
+	[JSON::PP]
+	- fixed the incremental parser in negative nest level
+	    (pointed and patched by Yuval Kogman)
+
 2.11  Tue Jun 17 14:30:01 2008
 	[JSON::PP]
 	- fixed the decoding process which checks number.

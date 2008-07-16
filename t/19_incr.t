@@ -1,9 +1,11 @@
 #!/usr/bin/perl -w
 
+# copied over from JSON::XS and modified to use JSON
+
 use strict;
 
 use Test::More;
-BEGIN { plan tests => 693 };
+BEGIN { plan tests => 697 };
 BEGIN { $ENV{PERL_JSON_BACKEND} = 0; }
 
 
@@ -165,4 +167,18 @@ print $@;
    eval q{ !$coder->incr_parse (" [] ") }; ok ($@ =~ /maximum nesting/, "incdepth2 $@");
 }
 
+{
+   my $coder = JSON->new;
+
+   my $res = eval { $coder->incr_parse("]") };
+   my $e = $@; # test more clobbers $@, we need it twice
+
+   ok(!$res, "unbalanced bracket" );
+   ok($e, "got error");
+   like( $e, qr/malformed/, "malformed json string error" );
+
+   $coder->incr_skip;
+
+   is_deeply(eval { $coder->incr_parse("[42]") }, [42], "valid data after incr_skip");
+}
 

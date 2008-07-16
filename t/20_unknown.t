@@ -34,7 +34,7 @@ is( $json->encode( [ \{} ] ),    '[null]' );
 
 SKIP: {
 
-    skip "this test is for Perl 5.8 or lator", 2 if( $] < 5.008 );
+    skip "this test is for Perl 5.8 or later", 2 if( $] < 5.008 );
 
 $json->allow_unknown(0);
 
