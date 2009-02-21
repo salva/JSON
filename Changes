@@ -13,6 +13,20 @@ In this version, JSON was totally rewritten.
 
 ##########################################################################
 
+2.13  Sat Feb 21 17:01:05 2009
+	[JSON::PP]
+	- decode() didn't upgrade unicode escaped charcters \u0080-\u00ff.
+	  this problem was pointed by rt#43424 (Mika Raento)
+	[JSON::PP::56]
+	- fixed utf8::encode/decode emulators bugs.
+	- defined a missing B module constant in Perl 5.6.0.
+	  (reported by Clinton Pierce)
+	[JSON::PP::5005]
+	- _decode_unicode() returned a 0x80-0xff value as UTF8 encoded byte.
+	[JSON]
+	- added a refference to JSON::XS's document "JSON and ECMAscript".
+	- fixed a typo in the document (pointed by Jim Cromie).
+
 2.12  Wed Jul 16 11:14:35 2008
 	[JSON]
 	- made compatible with JSON::XS 2.22

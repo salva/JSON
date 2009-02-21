@@ -11,7 +11,7 @@ use Carp ();
 use B ();
 #use Devel::Peek;
 
-$JSON::PP::VERSION = '2.22000';
+$JSON::PP::VERSION = '2.22010';
 
 @JSON::PP::EXPORT = qw(encode_json decode_json from_json to_json);
 
@@ -636,7 +636,6 @@ BEGIN {
     my $ch;   # 1chracter
     my $len;  # text length (changed according to UTF8 or NON UTF8)
     # INTERNAL
-    my $is_utf8;        # must be with UTF8 flag
     my $depth;          # nest counter
     my $encoding;       # json text encoding
     my $is_valid_utf8;  # temp variable
@@ -674,8 +673,6 @@ BEGIN {
 
         ($utf8, $relaxed, $loose, $allow_bigint, $allow_barekey, $singlequote)
             = @{$idx}[P_UTF8, P_RELAXED, P_LOOSE .. P_ALLOW_SINGLEQUOTE];
-
-        $is_utf8 = 1 if ( $utf8 or utf8::is_utf8( $text ) );
 
         if ( $utf8 ) {
             utf8::downgrade( $text, 1 ) or Carp::croak("Wide character in subroutine entry");
@@ -748,6 +745,7 @@ BEGIN {
     sub string {
         my ($i, $s, $t, $u);
         my $utf16;
+        my $is_utf8;
 
         ($is_valid_utf8, $utf8_len) = ('', 0);
 
@@ -801,7 +799,7 @@ BEGIN {
                                 decode_error("surrogate pair expected");
                             }
 
-                            if ((my $hex = hex( $u )) > 255) {
+                            if ( ( my $hex = hex( $u ) ) > 127 ) {
                                 $is_utf8 = 1;
                                 $s .= JSON_PP_decode_unicode($u) || next;
                             }
@@ -819,11 +817,22 @@ BEGIN {
                     }
                 }
                 else{
-                    if ($utf8) {
-                        if( !is_valid_utf8($ch) ) {
-                            $at -= $utf8_len;
-                            decode_error("malformed UTF-8 character in JSON string");
+
+                    if ( ord $ch  > 127 ) {
+                        if ( $utf8 ) {
+                            unless( $ch = is_valid_utf8($ch) ) {
+                                $at -= 1;
+                                decode_error("malformed UTF-8 character in JSON string");
+                            }
+                            else {
+                                $at += $utf8_len - 1;
+                            }
                         }
+                        else {
+                            utf8::encode( $ch );
+                        }
+
+                        $is_utf8 = 1;
                     }
 
                     if (!$loose) {
@@ -1155,20 +1164,19 @@ BEGIN {
 
 
     sub is_valid_utf8 {
-        unless ( $utf8_len ) {
-            $utf8_len = $_[0] =~ /[\x00-\x7F]/  ? 1
-                      : $_[0] =~ /[\xC2-\xDF]/  ? 2
-                      : $_[0] =~ /[\xE0-\xEF]/  ? 3
-                      : $_[0] =~ /[\xF0-\xF4]/  ? 4
-                      : 0
-                      ;
-        }
 
-        return !($utf8_len = 1) unless ( $utf8_len );
+        $utf8_len = $_[0] =~ /[\x00-\x7F]/  ? 1
+                  : $_[0] =~ /[\xC2-\xDF]/  ? 2
+                  : $_[0] =~ /[\xE0-\xEF]/  ? 3
+                  : $_[0] =~ /[\xF0-\xF4]/  ? 4
+                  : 0
+                  ;
 
-        return 1 if (length ($is_valid_utf8 .= $_[0] ) < $utf8_len); # continued
+        return unless $utf8_len;
 
-        return ( $is_valid_utf8 =~ s/^(?:
+        my $is_valid_utf8 = substr($text, $at - 1, $utf8_len);
+
+        return ( $is_valid_utf8 =~ /^(?:
              [\x00-\x7F]
             |[\xC2-\xDF][\x80-\xBF]
             |[\xE0][\xA0-\xBF][\x80-\xBF]
@@ -1178,8 +1186,7 @@ BEGIN {
             |[\xF0][\x90-\xBF][\x80-\xBF][\x80-\xBF]
             |[\xF1-\xF3][\x80-\xBF][\x80-\xBF][\x80-\xBF]
             |[\xF4][\x80-\x8F][\x80-\xBF][\x80-\xBF]
-        )$//x and !($utf8_len = 0) ); # if valid, make $is_valid_utf8 empty and rest $utf8_len.
-
+        )$/x )  ? $is_valid_utf8 : '';
     }
 
 
@@ -1247,7 +1254,6 @@ BEGIN {
             at      => $at,
             ch      => $ch,
             len     => $len,
-            is_utf8 => $is_utf8,
             depth   => $depth,
             encoding      => $encoding,
             is_valid_utf8 => $is_valid_utf8,
@@ -1259,12 +1265,16 @@ BEGIN {
 
 sub _decode_surrogates { # from perlunicode
     my $uni = 0x10000 + (hex($_[0]) - 0xD800) * 0x400 + (hex($_[1]) - 0xDC00);
-    return pack('U*', $uni);
+    my $un  = pack('U*', $uni);
+    utf8::encode( $un );
+    return $un;
 }
 
 
 sub _decode_unicode {
-    return pack("U", hex shift);
+    my $un = pack('U', hex shift);
+    utf8::encode( $un );
+    return $un;
 }
 
 
@@ -2009,7 +2019,6 @@ Returns
             at      => $at,
             ch      => $ch,
             len     => $len,
-            is_utf8 => $is_utf8,
             depth   => $depth,
             encoding      => $encoding,
             is_valid_utf8 => $is_valid_utf8,

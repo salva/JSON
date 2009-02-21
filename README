@@ -1,4 +1,4 @@
-JSON version 2.12
+JSON version 2.13
 =================
 
 INSTALLATION
@@ -42,7 +42,7 @@ SYNOPSIS
      use JSON -support_by_pp;
 
 VERSION
-        2.10
+        2.13
 
     This version is compatible with JSON::XS 2.21.
 

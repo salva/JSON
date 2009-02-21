@@ -1,8 +1,8 @@
 --- #YAML:1.0
 name:                JSON
-version:             2.12
+version:             2.13
 abstract:            JSON (JavaScript Object Notation) encoder/decoder
-license:             ~
+license:             perl
 author:              
     - Makamaka Hannyaharamitu, E<lt>makamaka[at]cpan.orgE<gt>
 generated_by:        ExtUtils::MakeMaker version 6.42
