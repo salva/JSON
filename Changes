@@ -13,6 +13,11 @@ In this version, JSON was totally rewritten.
 
 ##########################################################################
 
+2.14  Tue Feb 24 11:20:24 2009
+	[JSON] 
+	- the compatible XS version was miswritten in document.
+
+
 2.13  Sat Feb 21 17:01:05 2009
 	[JSON::PP]
 	- decode() didn't upgrade unicode escaped charcters \u0080-\u00ff.
