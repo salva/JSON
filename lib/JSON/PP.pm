@@ -11,7 +11,7 @@ use Carp ();
 use B ();
 #use Devel::Peek;
 
-$JSON::PP::VERSION = '2.22010';
+$JSON::PP::VERSION = '2.24000';
 
 @JSON::PP::EXPORT = qw(encode_json decode_json from_json to_json);
 
@@ -489,7 +489,7 @@ sub allow_bigint {
     sub string_to_json {
         my ($self, $arg) = @_;
 
-        $arg =~ s/([\x22\x5c\n\r\t\f\b])/$esc{$1}/eg;
+        $arg =~ s/([\x22\x5c\n\r\t\f\b])/$esc{$1}/g;
         $arg =~ s/\//\\\//g if ($escape_slash);
         $arg =~ s/([\x00-\x08\x0b\x0e-\x1f])/'\\u00' . unpack('H2', $1)/eg;
 
@@ -1222,8 +1222,12 @@ BEGIN {
         }
 
         Carp::croak (
-            $no_rep ? "$error" : "$error, at character offset $at [\"$mess\"]"
+            $no_rep ? "$error" : "$error, at character offset $at (before \"$mess\")"
         );
+
+#        Carp::croak (
+#            $no_rep ? "$error" : "$error, at character offset $at [\"$mess\"]"
+#        );
     }
 
 
@@ -1348,7 +1352,6 @@ sub new {
         incr_text    => undef,
         incr_parsing => 0,
         incr_p       => 0,
-        
     }, $class;
 }
 
@@ -1394,8 +1397,8 @@ sub incr_parse {
         else { # in scalar context
             $self->{incr_parsing} = 1;
             my $obj = $self->_incr_parse( $coder, $self->{incr_text} );
-            $self->{incr_parsing} = 0;
-            return $obj;
+            $self->{incr_parsing} = 0 if defined $obj; # pointed by Martin J. Evans
+            return $obj ? $obj : undef; # $obj is an empty string, parsing was completed.
         }
 
     }
@@ -1420,52 +1423,52 @@ sub _incr_parse {
        }
     }
 
-        while ( $len > $p ) {
-            my $s = substr( $text, $p++, 1 );
+    while ( $len > $p ) {
+        my $s = substr( $text, $p++, 1 );
 
-            if ( $s eq '"' ) {
-                if ( $self->{incr_mode} != INCR_M_STR  ) {
-                    $self->{incr_mode} = INCR_M_STR;
-                }
-                else {
-                    $self->{incr_mode} = INCR_M_JSON;
-                    unless ( $self->{incr_nest} ) {
-                        last;
-                    }
+        if ( $s eq '"' ) {
+            if ( $self->{incr_mode} != INCR_M_STR  ) {
+                $self->{incr_mode} = INCR_M_STR;
+            }
+            else {
+                $self->{incr_mode} = INCR_M_JSON;
+                unless ( $self->{incr_nest} ) {
+                    last;
                 }
             }
-
-            if ( $self->{incr_mode} == INCR_M_JSON ) {
-
-                if ( $s eq '[' or $s eq '{' ) {
-                    if ( ++$self->{incr_nest} > $coder->get_max_depth ) {
-                        Carp::croak('json text or perl structure exceeds maximum nesting level (max_depth set too low?)');
-                    }
-                }
-                elsif ( $s eq ']' or $s eq '}' ) {
-                    last if ( --$self->{incr_nest} <= 0 );
-                }
-            }
-
         }
 
-        $self->{incr_p} = $p;
+        if ( $self->{incr_mode} == INCR_M_JSON ) {
 
-        return if ( $self->{incr_mode} == INCR_M_JSON and $self->{incr_nest} > 0 );
+            if ( $s eq '[' or $s eq '{' ) {
+                if ( ++$self->{incr_nest} > $coder->get_max_depth ) {
+                    Carp::croak('json text or perl structure exceeds maximum nesting level (max_depth set too low?)');
+                }
+            }
+            elsif ( $s eq ']' or $s eq '}' ) {
+                last if ( --$self->{incr_nest} <= 0 );
+            }
+        }
 
-        return unless ( length substr( $self->{incr_text}, 0, $p ) );
+    }
 
-        local $Carp::CarpLevel = 2;
+    $self->{incr_p} = $p;
 
-        $self->{incr_p} = $restore;
-        $self->{incr_c} = $p;
+    return if ( $self->{incr_mode} == INCR_M_JSON and $self->{incr_nest} > 0 );
 
-        my ( $obj, $tail ) = $coder->decode_prefix( substr( $self->{incr_text}, 0, $p ) );
+    return '' unless ( length substr( $self->{incr_text}, 0, $p ) );
 
-        $self->{incr_text} = substr( $self->{incr_text}, $p );
-        $self->{incr_p} = 0;
+    local $Carp::CarpLevel = 2;
 
-        return $obj;
+    $self->{incr_p} = $restore;
+    $self->{incr_c} = $p;
+
+    my ( $obj, $tail ) = $coder->decode_prefix( substr( $self->{incr_text}, 0, $p ) );
+
+    $self->{incr_text} = substr( $self->{incr_text}, $p );
+    $self->{incr_p} = 0;
+
+    return $obj or '';
 }
 
 
@@ -2120,7 +2123,7 @@ Makamaka Hannyaharamitu, E<lt>makamaka[at]cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2008 by Makamaka Hannyaharamitu
+Copyright 2007-2009 by Makamaka Hannyaharamitu
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 

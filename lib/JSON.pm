@@ -7,13 +7,13 @@ use base qw(Exporter);
 @JSON::EXPORT = qw(from_json to_json jsonToObj objToJson encode_json decode_json);
 
 BEGIN {
-    $JSON::VERSION = '2.14';
+    $JSON::VERSION = '2.15';
     $JSON::DEBUG   = 0 unless (defined $JSON::DEBUG);
 }
 
 my $Module_XS  = 'JSON::XS';
 my $Module_PP  = 'JSON::PP';
-my $XS_Version = '2.22';
+my $XS_Version = '2.24';
 
 
 # XS and PP common methods
@@ -586,9 +586,9 @@ JSON - JSON (JavaScript Object Notation) encoder/decoder
 
 =head1 VERSION
 
-    2.14
+    2.15
 
-This version is compatible with JSON::XS B<2.22> and later.
+This version is compatible with JSON::XS B<2.24> and later.
 
 
 =head1 DESCRIPTION
@@ -2058,7 +2058,7 @@ The relese of this new version owes to the courtesy of Marc Lehmann.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2005-2008 by Makamaka Hannyaharamitu
+Copyright 2005-2009 by Makamaka Hannyaharamitu
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 

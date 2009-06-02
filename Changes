@@ -13,10 +13,17 @@ In this version, JSON was totally rewritten.
 
 ##########################################################################
 
-2.14  Tue Feb 24 11:20:24 2009
-	[JSON] 
-	- the compatible XS version was miswritten in document.
+2.15  Tue Jun  2 16:36:42 2009
+	[JSON]
+	- made compatible with JSON::XS 2.24
+	- corrected copyrights in some modules.
+	[JSON::PP]
+	 - modified incr_parse, pointed by Martin J. Evans (rt#46439)
+	 - deleted a meaningless code
 
+2.14  Tue Feb 24 11:20:24 2009
+	[JSON]
+	- the compatible XS version was miswritten in document.
 
 2.13  Sat Feb 21 17:01:05 2009
 	[JSON::PP]
