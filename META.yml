@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               JSON
-version:            2.15
+version:            2.16
 abstract:           JSON (JavaScript Object Notation) encoder/decoder
 author:
     - Makamaka Hannyaharamitu, E<lt>makamaka[at]cpan.orgE<gt>

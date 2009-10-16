@@ -13,6 +13,12 @@ In this version, JSON was totally rewritten.
 
 ##########################################################################
 
+2.16  Fri Oct 16 15:07:37 2009
+	[JSON][JSON::PP]
+	- made compatible with JSON::XS 2.26
+            *indent adds a final newline
+	- corrected copyrights in JSON::PP58.
+
 2.15  Tue Jun  2 16:36:42 2009
 	[JSON]
 	- made compatible with JSON::XS 2.24

@@ -1,4 +1,4 @@
-JSON version 2.15
+JSON version 2.16
 =================
 
 INSTALLATION
@@ -42,9 +42,9 @@ SYNOPSIS
      use JSON -support_by_pp;
 
 VERSION
-        2.13
+        2.16
 
-    This version is compatible with JSON::XS 2.21.
+    This version is compatible with JSON::XS 2.26 and later.
 
 DESCRIPTION
      ************************** CAUTION ********************************
@@ -681,8 +681,9 @@ COMMON OBJECT-ORIENTED INTERFACE
     to a hash or array) to its JSON representation. Simple scalars will be
     converted into JSON string or number sequences, while references to
     arrays become JSON arrays and references to hashes become JSON objects.
-    Undefined Perl values (e.g. "undef") become JSON "null" values. Neither
-    "true" nor "false" values will be generated.
+    Undefined Perl values (e.g. "undef") become JSON "null" values.
+    References to the integers 0 and 1 are converted into "true" and
+    "false".
 
   decode
         $perl_scalar = $json->decode($json_text)
@@ -691,8 +692,9 @@ COMMON OBJECT-ORIENTED INTERFACE
     returning the resulting simple scalar or reference. Croaks on error.
 
     JSON numbers and strings become simple Perl scalars. JSON arrays become
-    Perl arrayrefs and JSON objects become Perl hashrefs. "true" becomes 1,
-    "false" becomes 0 and "null" becomes "undef".
+    Perl arrayrefs and JSON objects become Perl hashrefs. "true" becomes 1
+    ("JSON::true"), "false" becomes 0 ("JSON::false") and "null" becomes
+    "undef".
 
   decode_prefix
         ($perl_scalar, $characters) = $json->decode_prefix($json_text)
@@ -1077,6 +1079,9 @@ MAPPING
         converts "Math::BigInt" objects and "Math::BigFloat" objects into
         JSON numbers.
 
+JSON and ECMAscript
+    See to "JSON and ECMAscript" in JSON::XS.
+
 JSON and YAML
     JSON is not a subset of YAML. See to "JSON and YAML" in JSON::XS.
 
@@ -1140,7 +1145,7 @@ USE PP FEATURES EVEN THOUGH XS BACKEND
     makes a part of those unupported methods available. This feature is
     achieved by using JSON::PP in "de/encode".
 
-       BEING { $ENV{PERL_JSON_BACKEND} = 2 } # with JSON::XS
+       BEGIN { $ENV{PERL_JSON_BACKEND} = 2 } # with JSON::XS
        use JSON -support_by_pp;
        my $json = new JSON;
        $json->allow_nonref->escape_slash->encode("/");
@@ -1365,7 +1370,7 @@ AUTHOR
     The relese of this new version owes to the courtesy of Marc Lehmann.
 
 COPYRIGHT AND LICENSE
-    Copyright 2005-2008 by Makamaka Hannyaharamitu
+    Copyright 2005-2009 by Makamaka Hannyaharamitu
 
     This library is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.

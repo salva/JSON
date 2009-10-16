@@ -11,7 +11,7 @@ use Carp ();
 use B ();
 #use Devel::Peek;
 
-$JSON::PP::VERSION = '2.24000';
+$JSON::PP::VERSION = '2.26000';
 
 @JSON::PP::EXPORT = qw(encode_json decode_json from_json to_json);
 
@@ -291,6 +291,8 @@ sub allow_bigint {
              if(!ref $obj and !$idx->[ P_ALLOW_NONREF ]);
 
         my $str  = $self->object_to_json($obj);
+
+        $str .= "\n" if ( $indent ); # JSON::XS 2.26 compatible
 
         unless ($ascii or $latin1 or $utf8) {
             utf8::upgrade($str);

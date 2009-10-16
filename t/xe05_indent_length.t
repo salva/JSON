@@ -21,7 +21,8 @@ is($json->indent->encode([1,{foo => 'bar'}, "1", "/"]), qq|[
   },
   "1",
   "/"
-]|);
+]
+|);
 
 
 is($json->escape_slash(1)->pretty->indent_length(2)->encode([1,{foo => 'bar'}, "1", "/"]), qq|[
@@ -31,7 +32,8 @@ is($json->escape_slash(1)->pretty->indent_length(2)->encode([1,{foo => 'bar'}, "
   },
   "1",
   "\\/"
-]|);
+]
+|);
 
 
 is($json->escape_slash(1)->pretty->indent_length(3)->encode([1,{foo => 'bar'}, "1", "/"]), qq|[
@@ -41,7 +43,8 @@ is($json->escape_slash(1)->pretty->indent_length(3)->encode([1,{foo => 'bar'}, "
    },
    "1",
    "\\/"
-]|);
+]
+|);
 
 is($json->escape_slash(1)->pretty->indent_length(15)->encode([1,{foo => 'bar'}, "1", "/"]), qq|[
                1,
@@ -50,7 +53,8 @@ is($json->escape_slash(1)->pretty->indent_length(15)->encode([1,{foo => 'bar'}, 
                },
                "1",
                "\\/"
-]|);
+]
+|);
 
 
 is($json->indent_length(0)->encode([1,{foo => 'bar'}, "1", "/"]), qq|[
@@ -60,7 +64,8 @@ is($json->indent_length(0)->encode([1,{foo => 'bar'}, "1", "/"]), qq|[
 },
 "1",
 "\\/"
-]|);
+]
+|);
 
 is($json->indent(0)->space_before(0)->space_after(0)->escape_slash(0)
         ->encode([1,{foo => 'bar'}, "1", "/"]), qq|[1,{"foo":"bar"},"1","/"]|);
